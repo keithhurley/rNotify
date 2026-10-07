@@ -148,13 +148,15 @@ Report an Unmetered Milestone Step}
 \if{latex}{\out{\hypertarget{method-NotifyJob-step}{}}}
 \subsection{Method \code{step()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NotifyJob$step(message = "")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{NotifyJob$step(message = "", step = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{message}}{Milestone description.
+\item{\code{message}}{Milestone description.}
+
+\item{\code{step}}{Optional current step index.
 Create a Nested Subtask for Inner Loops}
 }
 \if{html}{\out{</div>}}

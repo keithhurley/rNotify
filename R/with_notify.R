@@ -94,26 +94,42 @@ notify_current_job <- function() {
   .rnotify_env$current_job
 }
 
-#' Report Progress from Inside with_notify Block
+#' Report Progress from Inside with_notify Block or Directly on Job
 #'
-#' @param step Current step number.
+#' @param step Current step number or \code{NotifyJob} object.
 #' @param total Total steps.
 #' @param message Status message.
+#' @param job Optional target \code{NotifyJob} instance.
 #' @export
-notify_progress <- function(step, total = NULL, message = "") {
-  job <- notify_current_job()
+notify_progress <- function(step, total = NULL, message = "", job = NULL) {
+  if (inherits(step, "NotifyJob")) {
+    job <- step
+    step <- if (!is.null(total)) total else 1L
+    total <- NULL
+  }
+  if (is.null(job)) {
+    job <- notify_current_job()
+  }
   if (!is.null(job)) {
     job$progress(step = step, total = total, message = message)
   }
 }
 
-#' Report a Step Milestone from Inside with_notify Block
+#' Report a Step Milestone from Inside with_notify Block or Directly on Job
 #'
-#' @param message Milestone description.
+#' @param message Milestone description or a \code{NotifyJob} instance.
+#' @param step Optional current step index.
+#' @param job Optional target \code{NotifyJob} instance.
 #' @export
-notify_step <- function(message = "") {
-  job <- notify_current_job()
+notify_step <- function(message = "", step = NULL, job = NULL) {
+  if (inherits(message, "NotifyJob")) {
+    job <- message
+    message <- ""
+  }
+  if (is.null(job)) {
+    job <- notify_current_job()
+  }
   if (!is.null(job)) {
-    job$step(message = message)
+    job$step(message = message, step = step)
   }
 }

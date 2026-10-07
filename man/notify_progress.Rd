@@ -2,17 +2,19 @@
 % Please edit documentation in R/with_notify.R
 \name{notify_progress}
 \alias{notify_progress}
-\title{Report Progress from Inside with_notify Block}
+\title{Report Progress from Inside with_notify Block or Directly on Job}
 \usage{
-notify_progress(step, total = NULL, message = "")
+notify_progress(step, total = NULL, message = "", job = NULL)
 }
 \arguments{
-\item{step}{Current step number.}
+\item{step}{Current step number or \code{NotifyJob} object.}
 
 \item{total}{Total steps.}
 
 \item{message}{Status message.}
+
+\item{job}{Optional target \code{NotifyJob} instance.}
 }
 \description{
-Report Progress from Inside with_notify Block
+Report Progress from Inside with_notify Block or Directly on Job
 }

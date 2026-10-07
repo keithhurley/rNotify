@@ -2,13 +2,17 @@
 % Please edit documentation in R/with_notify.R
 \name{notify_step}
 \alias{notify_step}
-\title{Report a Step Milestone from Inside with_notify Block}
+\title{Report a Step Milestone from Inside with_notify Block or Directly on Job}
 \usage{
-notify_step(message = "")
+notify_step(message = "", step = NULL, job = NULL)
 }
 \arguments{
-\item{message}{Milestone description.}
+\item{message}{Milestone description or a \code{NotifyJob} instance.}
+
+\item{step}{Optional current step index.}
+
+\item{job}{Optional target \code{NotifyJob} instance.}
 }
 \description{
-Report a Step Milestone from Inside with_notify Block
+Report a Step Milestone from Inside with_notify Block or Directly on Job
 }

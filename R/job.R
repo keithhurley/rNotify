@@ -170,8 +170,13 @@ NotifyJob <- R6::R6Class("NotifyJob",
     #' Report an Unmetered Milestone Step
     #'
     #' @param message Milestone description.
-    step = function(message = "") {
-      self$progress(message = message, force = TRUE)
+    #' @param step Optional current step index.
+    step = function(message = "", step = NULL) {
+      if (!is.null(step)) {
+        self$progress(step = step, message = message, force = TRUE)
+      } else {
+        self$progress(message = message, force = TRUE)
+      }
       invisible(self)
     },
 
