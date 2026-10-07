@@ -1,0 +1,139 @@
+---
+title: "rNotify Architecture and Technical Reference Guide"
+author: "Keith Hurley"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rNotify Architecture and Technical Reference Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# 1. Architectural Philosophy
+
+The `rNotify` package is designed to solve common pain points encountered during long computational runs in R (e.g., spatial simulations, MCMC estimation, Bayesian modeling, cross-validation, and batch ETL pipelines):
+
+1. **Zero-Impact Fault Isolation**: A broken internet connection, expired API token, or remote service outage must *never* interrupt or crash the calling R script.
+2. **Unified Multiplexed Dispatch**: A single function call fans out status alerts across 1, a few, or all configured channels (mobile push, desk screen, desktop toast, email, and webhooks).
+3. **Multi-Stage & Nested Loop Awareness**: Long workflows often feature nested hierarchies (e.g. 50 waterbodies $\times$ 1,000 bootstrap replicates). `rNotify` provides hierarchical subtasks with composite progress percentages and true global ETAs.
+4. **Catastrophic Failure Detection ("Dead Man's Switch")**: Standard R error handlers (`tryCatch`) cannot execute if R itself dies abruptly (such as a C-level segmentation fault, out-of-memory kill, or Windows process crash). `rNotify` uses an independent, detached background sentinel that detects when the main R session disappears and notifies the user that the job status is unknown.
+
+---
+
+# 2. Unified Notification Payload (`rnotify_payload`)
+
+Every lifecycle event (`start`, `progress`, `step`, `complete`, `error`, `catastrophic`) constructs a standard internal S3 object of class `rnotify_payload`:
+
+```r
+list(
+  job_id          = "job_20261007_142205_b4e1",
+  title           = "Annual Creel Simulation",
+  event           = "progress",    # "start", "progress", "step", "complete", "error", "catastrophic"
+  status          = "running",     # "running", "success", "failed", "crashed"
+  timestamp       = "2026-10-07T14:25:30-05:00",
+  message         = "Finished batch 45 of 100",
+  progress = list(
+    step          = 45,
+    total         = 100,
+    pct           = 45.0,
+    elapsed_sec   = 205.0,
+    elapsed_fmt   = "00:03:25",
+    eta_sec       = 250.0,
+    eta_fmt       = "00:04:10",
+    eta_timestamp = "2026-10-07T14:29:40-05:00",
+    inner_step    = NULL,
+    inner_total   = NULL,
+    inner_pct     = NA_real_,
+    inner_message = NULL
+  ),
+  system = list(
+    host          = "WORKSTATION-01",
+    user          = "keith.hurley",
+    os            = "Windows 11 x64",
+    pid           = 14820,
+    r_version     = "R version 4.5.0 (2025-04-11)"
+  ),
+  channels_active = c("pushover", "cyd", "desktop"),
+  details = list(
+    error_message = NULL,
+    call_stack    = NULL,
+    custom_stats  = list()
+  )
+)
+```
+
+Each channel driver takes this strongly-typed object and renders it into its respective format (JSON for CYD and Webhooks, HTML/text for Email, formatted push text for Pushover/ntfy, OS Toast for Desktop).
+
+---
+
+# 3. Fault Isolation Architecture
+
+Network calls are executed via `safe_dispatch()`:
+- Wrapped in an isolated `tryCatch()` block.
+- Enforces strict HTTP connect and transfer timeouts (2 to 5 seconds).
+- Any transport error emits a non-fatal R warning and appends details to `~/.rnotify/rnotify.log`.
+- **Under no circumstances will a notification failure alter execution flow in the user script.**
+
+---
+
+# 4. Multi-Tier Throttling & Debouncing
+
+When executing loops with thousands of steps, you do not want thousands of notifications. The `create_throttler()` engine enforces:
+
+- **Time Throttling (`throttle_sec`)**: Minimum interval in seconds between dispatches (e.g. at most once every 5 minutes).
+- **Milestone Triggers (`milestones`)**: Dispatches only when reaching specific percentage thresholds (e.g. `c(25, 50, 75, 100)`).
+- **Percentage Buckets (`pct_step`)**: Dispatches on fixed percentage step intervals (e.g. every `10`%).
+- **Step Change (`min_step_change`)**: Dispatches only after a minimum number of iterations have passed.
+
+---
+
+# 5. Dead Man's Switch (Detached Sentinel Process)
+
+```text
+[Main R Session (PID: 14820)]
+     │
+     ├─► Creates State File: ~/.rnotify/jobs/job_XYZ.rds
+     ├─► Spawns Detached Process: Rscript inst/sentinel/sentinel_daemon.R
+     │
+     ▼
+[Detached Sentinel Daemon (Independent Process Tree)]
+     │
+     ├─► Periodically checks: Is PID 14820 alive?
+     ├─► Scenario A (Normal Finish):
+     │     Main session sets status="COMPLETED". Sentinel terminates quietly.
+     │
+     └─► Scenario B (Abrupt Crash / Segfault / Power Loss):
+           PID 14820 vanishes from OS process table without clean exit.
+           Sentinel immediately catches death and fires emergency alert:
+           "CRITICAL: R session PID 14820 terminated abruptly without clean exit!
+            Job status is UNKNOWN. No more notifications are forthcoming."
+```
+
+---
+
+# 6. Global Configuration & Channel Resolution
+
+Channels can be registered once via `rnotify_configure()`:
+
+```r
+library(rNotify)
+
+rnotify_configure(
+  desktop  = channel_desktop(),
+  pushover = channel_pushover(),
+  ntfy     = channel_ntfy(topic = "my-research-jobs"),
+  cyd      = channel_cyd(host = "192.168.1.150")
+)
+```
+
+In your scripts, choose:
+- **1 channel**: `channels = "desktop"` or `channels = channel_desktop()`
+- **A few channels**: `channels = c("pushover", "cyd")`
+- **All channels**: `channels = "all"`

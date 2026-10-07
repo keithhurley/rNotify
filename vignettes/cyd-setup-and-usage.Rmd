@@ -1,0 +1,194 @@
+---
+title: "Using the Cheap Yellow Display (CYD) with rNotify"
+author: "Keith Hurley"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using the Cheap Yellow Display (CYD) with rNotify}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Introduction
+
+The **Cheap Yellow Display (CYD)** is a popular, low-cost (approx. \$10–\$15) ESP32-based development board featuring an integrated 2.8" color TFT screen. 
+
+When paired with `rNotify`, the CYD acts as a dedicated, physical desk monitor for your R jobs. It renders high-frequency outer and nested inner progress bars, color-coded job status, elapsed runtime, and real-time ETAs over Wi-Fi without cluttering your workstation screens or flooding your phone with push notifications.
+
+---
+
+## 1. Hardware Specifications & Pinout
+
+### Technical Specifications
+- **Module Model**: ESP32-2432S028R
+- **Processor**: Dual-core ESP32-WROOM-32 (240 MHz, 520 KB SRAM, 4 MB Flash)
+- **Display**: 2.8-inch TFT LCD, 320 × 240 pixels (Landscape)
+- **Display Controller**: ILI9341 (SPI interface)
+- **Touch Controller**: XPT2046 resistive touch
+- **Connectivity**: 2.4 GHz 802.11 b/g/n Wi-Fi
+- **Power & Data**: Micro-USB (5V, 500mA–1A)
+- **Peripherals**: Onboard RGB LED, LDR light sensor, MicroSD slot, speaker header
+
+### Pinout Table (ESP32 to LCD)
+| Signal | ESP32 GPIO Pin | Description |
+| :--- | :--- | :--- |
+| **TFT_MISO** | `GPIO 12` | SPI Master In Slave Out |
+| **TFT_MOSI** | `GPIO 13` | SPI Master Out Slave In |
+| **TFT_SCLK** | `GPIO 14` | SPI Clock |
+| **TFT_CS** | `GPIO 15` | LCD Chip Select |
+| **TFT_DC** | `GPIO 2` | Data / Command Control |
+| **TFT_RST** | `-1` | Tied to ESP32 EN/Reset |
+| **TFT_BL** | `GPIO 21` | Backlight LED Control |
+
+---
+
+## 2. Firmware Flashing & Display Setup
+
+`rNotify` provides pre-written, ready-to-flash Arduino firmware inside the package at `inst/cyd_firmware/cyd_notify.ino`.
+
+### Step 1: Arduino IDE Configuration
+1. Open the **Arduino IDE** (v2.x recommended).
+2. Ensure the ESP32 board package is installed:
+   - Navigate to **Tools > Board > Boards Manager**.
+   - Search for `esp32` by *Espressif Systems* and install it.
+3. Select Board: **Tools > Board > esp32 > ESP32 Dev Module**.
+
+### Step 2: Install Required Libraries
+Open **Tools > Manage Libraries...** and install:
+- **`TFT_eSPI`** (by Bodmer)
+- **`ArduinoJson`** (by Benoît Blanchon, v6 or v7)
+
+### Step 3: Configure `TFT_eSPI` for CYD
+In your computer's Arduino libraries folder, locate `libraries/TFT_eSPI/User_Setup.h` (or select the preset `Setup70_ESP32_2432S028.h` in `User_Setup_Select.h`):
+
+```cpp
+// In User_Setup.h:
+#define ILI9341_2_DRIVER
+
+#define TFT_MISO 12
+#define TFT_MOSI 13
+#define TFT_SCLK 14
+#define TFT_CS   15
+#define TFT_DC    2
+#define TFT_RST  -1
+#define TFT_BL   21
+#define TFT_BACKLIGHT_ON HIGH
+
+#define LOAD_GLCD
+#define LOAD_FONT2
+#define LOAD_FONT4
+#define SPI_FREQUENCY  40000000
+```
+
+### Step 4: Flash the Firmware
+1. Open [`inst/cyd_firmware/cyd_notify.ino`](file:///c:/Users/keith.hurley/source/repos/rNotify/inst/cyd_firmware/cyd_notify.ino) in Arduino IDE.
+2. Edit lines 18–19 with your 2.4 GHz Wi-Fi credentials:
+   ```cpp
+   const char* WIFI_SSID     = "Your_WiFi_Name";
+   const char* WIFI_PASSWORD = "Your_WiFi_Password";
+   ```
+3. Connect your CYD to your PC via micro-USB.
+4. Click **Upload**.
+5. Once flashed, the screen initializes, connects to your network, and displays its assigned local IP address (e.g. `192.168.1.150`).
+
+---
+
+## 3. Screen Layout & Visual Hierarchy
+
+The firmware formats the 320 × 240 pixel display into clean, high-contrast visual zones:
+
+```text
++-------------------------------------------------------------+
+| [● RUNNING]   Statewide Creel Simulation      PID: 14820    | <- Header (Cyan/Green/Red)
++-------------------------------------------------------------+
+| Lake McConaughy (Outer Step 12 / 50)           [ 24% Total] | <- Outer Step Label
+| [=========>                                               ] | <- Outer Progress Bar
+|                                                             |
+| Bootstrap Rep 450 / 1000                       [ 45% Lake ] | <- Inner Subtask Label
+| [====================>                                    ] | <- Inner Progress Bar
+|                                                             |
+| Elapsed: 01:14:22                    Global ETA: 04:02:10   | <- Metrics Card
++-------------------------------------------------------------+
+| IP: 192.168.1.150                    rNotify v0.1           | <- Device Status Footer
++-------------------------------------------------------------+
+```
+
+### Event Color Mapping
+- **`start`**: Cyan banner (`#00CCFF`), clears screen, resets progress bars.
+- **`progress`**: Vibrant Green banner (`#33DD66`), updates progress bars and ETAs.
+- **`complete`**: Bright Green banner (`#00FF00`), fills progress to 100%, displays final runtime.
+- **`error`**: Red banner (`#FF3333`), displays failure message and call stack excerpt.
+- **`catastrophic`**: Flashing Red banner (`#FF0000`), warns **"CRITICAL: R SESSION VANISHED. STATUS UNKNOWN"**.
+
+---
+
+## 4. Driving the CYD from R
+
+### Basic Configuration
+Save the CYD's IP address into your `~/.Renviron`:
+```bash
+CYD_HOST=192.168.1.150
+```
+
+### Example: Nested Loop with Desk Updates
+```r
+library(rNotify)
+
+# Set up CYD channel
+cyd <- channel_cyd(host = "192.168.1.150", throttle_sec = 2.0)
+
+job <- notify_job(
+  title = "Statewide Creel Index",
+  channels = list(cyd, channel_desktop()),
+  total_steps = 50
+)
+
+job$start("Starting statewide run...")
+
+for (i in 1:50) {
+  sub <- job$subtask(title = sprintf("Lake %d", i), total_steps = 100, step_num = i)
+
+  for (j in 1:100) {
+    # Compute simulation iteration
+    Sys.sleep(0.05)
+
+    # High-frequency inner update sent to CYD screen
+    sub$progress(step = j, message = sprintf("Iteration %d", j))
+  }
+
+  sub$complete()
+}
+
+job$complete("All 50 lakes completed.")
+```
+
+---
+
+## 5. REST JSON Protocol Specification
+
+If you wish to build custom firmware or bridge to MQTT/Home Assistant, `channel_cyd()` sends an HTTP POST request to `http://<CYD_IP>:80/api/notify` with the following JSON schema:
+
+```json
+{
+  "title": "Statewide Creel Index",
+  "event": "progress",
+  "status_text": "RUNNING",
+  "status_color": "#33DD66",
+  "progress_pct": 24,
+  "step_info": "12 / 50",
+  "inner_pct": 45,
+  "inner_info": "450 / 1000",
+  "message": "Fitting Lake McConaughy",
+  "elapsed": "01:14:22",
+  "eta": "04:02:10",
+  "channels": ["cyd", "desktop"]
+}
+```

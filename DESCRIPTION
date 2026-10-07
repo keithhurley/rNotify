@@ -23,5 +23,8 @@ Imports:
 Suggests:
     testthat (>= 3.0.0),
     callr,
-    blastula
+    blastula,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Config/testthat/edition: 3

@@ -1,0 +1,197 @@
+---
+title: "Getting Started with rNotify"
+author: "Keith Hurley"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with rNotify}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Introduction
+
+The `rNotify` package provides an intuitive, robust framework for receiving status notifications from R when running long computations. Whether you are running batch data pipelines overnight, fitting Bayesian models, or performing intensive simulations, `rNotify` keeps you informed without risking script stability.
+
+---
+
+## 1. Setting Up Credentials in `~/.Renviron`
+
+To avoid hardcoding sensitive API keys or tokens into your R scripts or Git commits, place them into your personal `~/.Renviron` file:
+
+```bash
+# Pushover credentials (https://pushover.net)
+PUSHOVER_USER=uQiRzpo4DXghDmr9QzzfBs1Jy...
+PUSHOVER_TOKEN=azGDORePK8gMaC0QOYAMyEE7...
+
+# ntfy.sh topic (https://ntfy.sh)
+NTFY_TOPIC=keith-fisheries-models
+
+# Cheap Yellow Display ESP32 IP
+CYD_HOST=192.168.1.150
+
+# SMTP Email Configuration (optional)
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=keith.l.hurley@gmail.com
+SMTP_PASSWORD=your_app_password
+RNOTIFY_EMAIL_FROM=keith.l.hurley@gmail.com
+```
+
+Once defined, reload your R session or call `readRenviron("~/.Renviron")`. The channel drivers in `rNotify` will read these variables automatically by default.
+
+---
+
+## 2. Configuring Channels (1, Few, or All)
+
+You can configure your default channels once at the beginning of your script or in your `~/.Rprofile`:
+
+```r
+library(rNotify)
+
+# Register available destinations
+rnotify_configure(
+  desktop  = channel_desktop(),
+  pushover = channel_pushover(),
+  ntfy     = channel_ntfy(),
+  cyd      = channel_cyd()
+)
+```
+
+When a job starts, `rNotify` prints an informative summary to your console:
+
+```text
+[rNotify] ========================================================
+[rNotify] Job Initialized: 'Statewide Creel Simulation' (PID: 14820)
+[rNotify] Active Channels (4): Desktop, Pushover, ntfy [keith-fisheries-models], CYD (192.168.1.150:80)
+[rNotify] Crash Sentinel: Active (Dead Man's Switch monitoring PID 14820)
+[rNotify] ========================================================
+```
+
+---
+
+## 3. Workflow Pattern 1: High-Level Wrapper (`with_notify`)
+
+The `with_notify()` function wraps an entire block of code or script. It automatically:
+1. Announces channels and starts the crash sentinel.
+2. Dispatches a "Job Started" alert.
+3. Catches any unhandled errors, formats the error message and call stack, and sends a "Job Failed" alert before safely re-raising the error in R.
+4. On success, computes total execution duration and sends a "Job Completed" summary.
+
+```r
+result <- with_notify(
+  title = "Annual Creel Index Model",
+  channels = "all", # or c("pushover", "desktop")
+  expr = {
+    notify_step("Loading raw survey database...")
+    surveys <- load_surveys()
+
+    notify_step("Fitting hierarchical Bayesian model...")
+    fit <- fit_creel_model(surveys)
+
+    notify_step("Exporting results to RDS...")
+    saveRDS(fit, "creel_fit_2026.rds")
+
+    fit
+  }
+)
+```
+
+---
+
+## 4. Workflow Pattern 2: Single-Stage Loop with Throttling (`notify_job`)
+
+For iterative loops where you want progress updates without spamming your channels, use `notify_job()` with throttling options:
+
+```r
+lakes <- c("Lake McConaughy", "Lewis and Clark", "Harlan County", "Calamus", "Branched Oak")
+
+job <- notify_job(
+  title = "Reservoir Creel Metric Calculation",
+  channels = c("pushover", "desktop"),
+  total_steps = length(lakes),
+  milestones = c(25, 50, 75, 100), # Triggers only at 25%, 50%, 75%, and 100%
+  throttle_sec = 60                # Never ping channels faster than once a minute
+)
+
+job$start("Starting reservoir processing...")
+
+for (i in seq_along(lakes)) {
+  lake <- lakes[i]
+  process_reservoir(lake)
+
+  job$progress(
+    step = i,
+    message = sprintf("Finished processing %s (%d/%d)", lake, i, length(lakes))
+  )
+}
+
+job$complete("All reservoirs processed successfully.")
+```
+
+---
+
+## 5. Workflow Pattern 3: Nested Loops (Outer $\times$ Inner Subtasks)
+
+When you have nested loops (e.g., 50 lakes $\times$ 1,000 bootstrap iterations), you want:
+- **Live updates** on your desk screen (CYD) every 2 seconds.
+- **Milestone updates** on your phone (Pushover) only when a lake finishes.
+- **Accurate global ETA** that combines both outer and inner progress.
+
+```r
+job <- notify_job(
+  title = "Statewide Creel Simulation",
+  channels = list(
+    channel_cyd(throttle_sec = 2),                              # Updates desk display
+    channel_pushover(min_level = "outer", throttle_sec = 600),  # Alerts phone only on outer steps
+    channel_desktop(events = c("complete", "error"))            # Chimes only upon completion
+  ),
+  total_steps = length(lakes)
+)
+
+job$start()
+
+for (i in seq_along(lakes)) {
+  lake_name <- lakes[i]
+
+  # Create a subtask for this specific lake
+  sub <- job$subtask(title = lake_name, total_steps = 1000, step_num = i)
+
+  for (rep in 1:1000) {
+    fit_bootstrap_replicate(rep)
+
+    # Inner loop progress: CYD screen updates continuously, phone is not spammed
+    sub$progress(
+      step = rep,
+      message = sprintf("Bootstrap rep %d/1000", rep)
+    )
+  }
+
+  sub$complete(sprintf("Lake %s finalized.", lake_name))
+}
+
+job$complete("All simulations completed successfully.")
+```
+
+---
+
+## 6. Fault Isolation & Crash Sentinel Demonstration
+
+### Zero-Impact Fault Isolation
+If an external service is unavailable (e.g. WiFi drops or Pushover returns HTTP 500), `rNotify` catches the error, outputs a non-fatal warning, and appends the trace to `~/.rnotify/rnotify.log`. Your R job keeps running without delay.
+
+### Dead Man's Switch in Action
+If your R session abruptly terminates (e.g. out-of-memory crash or process kill), the detached background sentinel notices that the parent PID vanished without setting the completion flag. It immediately dispatches an emergency alert across all channels:
+
+> 🚨 **CRITICAL: R SESSION TERMINATED ABRUPTLY**  
+> **Job**: *Statewide Creel Simulation*  
+> **Session PID**: 14820 vanished unexpectedly.  
+> **Status**: UNKNOWN / CRASHED. No further notifications are forthcoming.
