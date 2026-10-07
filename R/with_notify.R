@@ -76,7 +76,7 @@ with_notify <- function(expr,
       }
     )
     completed_cleanly <- TRUE
-    job$complete("Job executed and completed successfully.")
+    job$complete()
     res
   }, error = function(e) {
     # Re-throw original error so caller receives standard R error condition

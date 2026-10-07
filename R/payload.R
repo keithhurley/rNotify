@@ -158,9 +158,9 @@ as_summary_text <- function(x, ...) {
     lines <- c(lines, step_str)
   }
 
-  if (x$event %in% c("progress", "step", "complete")) {
+  if (x$event %in% c("progress", "step", "complete", "error")) {
     timing_str <- sprintf("Elapsed: %s", x$progress$elapsed_fmt)
-    if (!is.na(x$progress$eta_sec) && x$event != "complete") {
+    if (!is.na(x$progress$eta_sec) && !(x$event %in% c("complete", "error"))) {
       timing_str <- sprintf("%s | ETA: %s", timing_str, x$progress$eta_fmt)
     }
     lines <- c(lines, timing_str)

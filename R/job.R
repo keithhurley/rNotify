@@ -229,6 +229,10 @@ NotifyJob <- R6::R6Class("NotifyJob",
 
       channel_names <- vapply(self$channels, function(c) c$name, character(1))
 
+      if (identical(message, "Job completed successfully.")) {
+        message <- sprintf("Job completed successfully in %s.", format_duration(elapsed))
+      }
+
       payload <- new_payload(
         event = "complete",
         title = self$title,

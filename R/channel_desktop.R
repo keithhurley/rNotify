@@ -42,8 +42,11 @@ channel_desktop <- function(sound = TRUE,
     # 2. Desktop Toast Notification
     if (isTRUE(toast)) {
       tryCatch({
-        title_esc <- gsub("\"", "`\"", payload$title)
-        msg_esc <- gsub("\"", "`\"", if (nzchar(payload$message)) payload$message else toupper(payload$status))
+        raw_msg <- if (nzchar(payload$message)) payload$message else toupper(payload$status)
+        if (!is.null(payload$progress$elapsed_fmt) && payload$progress$elapsed_fmt != "--:--:--") {
+          raw_msg <- sprintf("%s [Elapsed: %s]", raw_msg, payload$progress$elapsed_fmt)
+        }
+        msg_esc <- gsub("\"", "`\"", raw_msg)
 
         if (.Platform$OS.type == "windows") {
           # PowerShell notification script
