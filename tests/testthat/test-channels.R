@@ -32,3 +32,29 @@ test_that("channels filter inner events based on min_level", {
   # Inner channel should accept inner event
   expect_true(safe_dispatch(ch_inner, p_inner, is_inner = TRUE))
 })
+
+test_that("channel_cyd supports bluetooth, serial, and http transports", {
+  # Auto-detection from COM port
+  ch_bt <- channel_cyd(target = "COM8")
+  expect_equal(ch_bt$name, "cyd")
+  expect_equal(ch_bt$transport, "bluetooth")
+  expect_equal(ch_bt$target, "COM8")
+
+  # Bluetooth dedicated constructor
+  ch_bt_helper <- channel_cyd_bluetooth(port = "COM9")
+  expect_equal(ch_bt_helper$name, "cyd")
+  expect_equal(ch_bt_helper$transport, "bluetooth")
+  expect_equal(ch_bt_helper$target, "COM9")
+
+  # Serial dedicated constructor
+  ch_ser <- channel_cyd_serial(port = "COM7")
+  expect_equal(ch_ser$name, "cyd")
+  expect_equal(ch_ser$transport, "serial")
+  expect_equal(ch_ser$target, "COM7")
+
+  # HTTP auto-detection
+  ch_http <- channel_cyd(target = "192.168.1.150")
+  expect_equal(ch_http$transport, "http")
+  expect_equal(ch_http$target, "192.168.1.150")
+})
+

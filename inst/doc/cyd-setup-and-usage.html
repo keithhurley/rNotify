@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Keith Hurley" />
+
+<meta name="date" content="2026-10-07" />
+
+<title>Using the Cheap Yellow Display (CYD) with rNotify</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Using the Cheap Yellow Display (CYD) with
+rNotify</h1>
+<h4 class="author">Keith Hurley</h4>
+<h4 class="date">2026-10-07</h4>
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>The <strong>Cheap Yellow Display (CYD)</strong> is a popular,
+low-cost (approx. $10–$15) ESP32-based development board featuring an
+integrated 2.8” color TFT screen.</p>
+<p>When paired with <code>rNotify</code>, the CYD acts as a dedicated,
+physical desk monitor for your R jobs. It renders high-frequency outer
+and nested inner progress bars, color-coded job status, elapsed runtime,
+and real-time ETAs without cluttering your workstation screens or
+flooding your phone with push notifications.</p>
+<p><code>rNotify</code> supports <strong>three flexible
+transports</strong> for driving the CYD: 1. <strong>Bluetooth Serial
+(SPP)</strong>: Direct wireless link from your computer to the desk
+display. No Wi-Fi networks, router isolation, or passwords required! 2.
+<strong>USB Serial</strong>: Direct wired connection over the micro-USB
+cable. Zero configuration, instant plug-and-play. 3. <strong>Wi-Fi
+REST</strong>: Over local network via lightweight HTTP POST
+requests.</p>
+<hr />
+</div>
+<div id="hardware-specifications-pinout" class="section level2">
+<h2>1. Hardware Specifications &amp; Pinout</h2>
+<div id="technical-specifications" class="section level3">
+<h3>Technical Specifications</h3>
+<ul>
+<li><strong>Module Model</strong>: ESP32-2432S028R</li>
+<li><strong>Processor</strong>: Dual-core ESP32-WROOM-32 (240 MHz, 520
+KB SRAM, 4 MB Flash)</li>
+<li><strong>Display</strong>: 2.8-inch TFT LCD, 320 × 240 pixels
+(Landscape)</li>
+<li><strong>Display Controller</strong>: ILI9341 (SPI interface)</li>
+<li><strong>Touch Controller</strong>: XPT2046 resistive touch</li>
+<li><strong>Wireless</strong>: Bluetooth Classic (SPP), Bluetooth Low
+Energy (BLE), 2.4 GHz Wi-Fi</li>
+<li><strong>Power &amp; Data</strong>: Micro-USB (5V, 500mA–1A)</li>
+<li><strong>Peripherals</strong>: Onboard RGB LED (Pins 4, 16, 17), LDR
+light sensor, MicroSD slot, speaker header</li>
+</ul>
+</div>
+<div id="pinout-table-esp32-to-lcd-led" class="section level3">
+<h3>Pinout Table (ESP32 to LCD &amp; LED)</h3>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Signal</th>
+<th align="left">ESP32 GPIO Pin</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>TFT_MISO</strong></td>
+<td align="left"><code>GPIO 12</code></td>
+<td align="left">SPI Master In Slave Out</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>TFT_MOSI</strong></td>
+<td align="left"><code>GPIO 13</code></td>
+<td align="left">SPI Master Out Slave In</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>TFT_SCLK</strong></td>
+<td align="left"><code>GPIO 14</code></td>
+<td align="left">SPI Clock</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>TFT_CS</strong></td>
+<td align="left"><code>GPIO 15</code></td>
+<td align="left">LCD Chip Select</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>TFT_DC</strong></td>
+<td align="left"><code>GPIO 2</code></td>
+<td align="left">Data / Command Control</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>TFT_RST</strong></td>
+<td align="left"><code>-1</code></td>
+<td align="left">Tied to ESP32 EN/Reset</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>TFT_BL</strong></td>
+<td align="left"><code>GPIO 21</code></td>
+<td align="left">Backlight LED Control (Active HIGH)</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>LED_RED</strong></td>
+<td align="left"><code>GPIO 4</code></td>
+<td align="left">Onboard RGB LED - Red (Active LOW)</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>LED_GREEN</strong></td>
+<td align="left"><code>GPIO 16</code></td>
+<td align="left">Onboard RGB LED - Green (Active LOW)</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>LED_BLUE</strong></td>
+<td align="left"><code>GPIO 17</code></td>
+<td align="left">Onboard RGB LED - Blue (Active LOW)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</div>
+</div>
+<div id="firmware-flashing-configuration" class="section level2">
+<h2>2. Firmware Flashing &amp; Configuration</h2>
+<p><code>rNotify</code> provides pre-written, ready-to-flash Arduino
+firmware inside the package at
+<code>inst/cyd_firmware/cyd_notify.ino</code>.</p>
+<div id="step-1-arduino-ide-arduino-cli-configuration" class="section level3">
+<h3>Step 1: Arduino IDE / Arduino CLI Configuration</h3>
+<ol style="list-style-type: decimal">
+<li>Open the <strong>Arduino IDE</strong> (v2.x) or install
+<code>arduino-cli</code>.</li>
+<li>Ensure the ESP32 board package is installed:
+<ul>
+<li>Board: <strong>ESP32 Dev Module</strong>
+(<code>esp32:esp32:esp32</code>).</li>
+<li>Partition Scheme: Select <strong>Huge APP (3MB No OTA / 1MB
+SPIFFS)</strong> to ensure ample headroom for Bluetooth and display
+drivers.</li>
+</ul></li>
+</ol>
+</div>
+<div id="step-2-install-required-libraries" class="section level3">
+<h3>Step 2: Install Required Libraries</h3>
+<p>Open <strong>Tools &gt; Manage Libraries…</strong> (or run
+<code>arduino-cli lib install</code>): -
+<strong><code>TFT_eSPI</code></strong> (by Bodmer) -
+<strong><code>ArduinoJson</code></strong> (by Benoît Blanchon, v6 or v7)
+- <strong><code>BluetoothSerial</code></strong> (included automatically
+in the ESP32 board core)</p>
+</div>
+<div id="step-3-configure-tft_espi-for-cyd" class="section level3">
+<h3>Step 3: Configure <code>TFT_eSPI</code> for CYD</h3>
+<p>In your computer’s Arduino libraries folder, locate
+<code>libraries/TFT_eSPI/User_Setup.h</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="pp">#define ILI9341_2_DRIVER</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="pp">#define TFT_WIDTH  </span><span class="dv">240</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="pp">#define TFT_HEIGHT </span><span class="dv">320</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="pp">#define TFT_BL   </span><span class="dv">21</span><span class="pp">            </span><span class="co">// LED back-light control pin</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="pp">#define TFT_BACKLIGHT_ON </span>HIGH<span class="pp">  </span><span class="co">// Level to turn ON back-light</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="pp">#define TFT_MISO </span><span class="dv">12</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="pp">#define TFT_MOSI </span><span class="dv">13</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="pp">#define TFT_SCLK </span><span class="dv">14</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="pp">#define TFT_CS   </span><span class="dv">15</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="pp">#define TFT_DC    </span><span class="dv">2</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="pp">#define TFT_RST  </span><span class="op">-</span><span class="dv">1</span></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="pp">#define LOAD_GLCD</span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="pp">#define LOAD_FONT2</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="pp">#define LOAD_FONT4</span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="pp">#define LOAD_FONT6</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="pp">#define LOAD_FONT7</span></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a><span class="pp">#define LOAD_FONT8</span></span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a><span class="pp">#define LOAD_GFXFF</span></span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a><span class="pp">#define SMOOTH_FONT</span></span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a><span class="pp">#define SPI_FREQUENCY  </span><span class="dv">40000000</span></span></code></pre></div>
+</div>
+<div id="step-4-flash-the-firmware" class="section level3">
+<h3>Step 4: Flash the Firmware</h3>
+<ol style="list-style-type: decimal">
+<li>Open <a href="file:///c:/Users/keith.hurley/source/repos/rNotify/inst/cyd_firmware/cyd_notify.ino"><code>inst/cyd_firmware/cyd_notify.ino</code></a>.</li>
+<li>Connect your CYD via micro-USB.</li>
+<li>Select your serial port (e.g. <code>COM7</code>) and upload.</li>
+<li>Once flashed, the screen initializes and displays <strong>BLUETOOTH
+READY</strong> with device name <code>rNotify-CYD</code>.</li>
+</ol>
+<hr />
+</div>
+</div>
+<div id="bluetooth-pairing-setup" class="section level2">
+<h2>3. Bluetooth Pairing Setup</h2>
+<p>To use the CYD wirelessly via Bluetooth from inside R:</p>
+<div id="windows" class="section level3">
+<h3>Windows</h3>
+<ol style="list-style-type: decimal">
+<li><p>Open Windows <strong>Settings &gt; Bluetooth &amp;
+devices</strong>.</p></li>
+<li><p>Click <strong>Add device &gt; Bluetooth</strong>.</p></li>
+<li><p>Select <strong><code>rNotify-CYD</code></strong> from the
+discovered device list and pair.</p></li>
+<li><p>Open <strong>More Bluetooth settings &gt; COM Ports</strong> tab
+(or check Device Manager under <em>Ports (COM &amp; LPT)</em>) to find
+the assigned <strong>Outgoing COM Port</strong> (typically
+<code>COM8</code> or <code>COM9</code>).</p></li>
+<li><p>Save the port in your <code>~/.Renviron</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="va">CYD_BT_PORT</span><span class="op">=</span>COM8</span></code></pre></div></li>
+</ol>
+</div>
+<div id="macos" class="section level3">
+<h3>macOS</h3>
+<ol style="list-style-type: decimal">
+<li>Open <strong>System Settings &gt; Bluetooth</strong>.</li>
+<li>Pair with <strong><code>rNotify-CYD</code></strong>.</li>
+<li>A serial device appears at <code>/dev/tty.rNotify-CYD</code>.</li>
+</ol>
+</div>
+<div id="linux" class="section level3">
+<h3>Linux</h3>
+<ol style="list-style-type: decimal">
+<li><p>Pair using <code>bluetoothctl</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="ex">bluetoothctl</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="ex">scan</span> on</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="ex">pair</span> <span class="op">&lt;</span>MAC_ADDRESS<span class="op">&gt;</span></span></code></pre></div></li>
+<li><p>Bind the RFCOMM port:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">sudo</span> rfcomm bind 0 <span class="op">&lt;</span>MAC_ADDRESS<span class="op">&gt;</span> 1</span></code></pre></div></li>
+<li><p>Use <code>/dev/rfcomm0</code> in R.</p></li>
+</ol>
+<hr />
+</div>
+</div>
+<div id="driving-the-cyd-from-r" class="section level2">
+<h2>4. Driving the CYD from R</h2>
+<div id="method-a-wireless-via-bluetooth-recommended" class="section level3">
+<h3>Method A: Wireless via Bluetooth (Recommended)</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">library</span>(rNotify)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co"># Connect to paired Bluetooth CYD</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>cyd <span class="ot">&lt;-</span> <span class="fu">channel_cyd_bluetooth</span>(<span class="at">port =</span> <span class="st">&quot;COM8&quot;</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># Run job with live telemetry</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>job <span class="ot">&lt;-</span> <span class="fu">notify_job</span>(</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">&quot;Creel Model Bootstrap&quot;</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">channels =</span> <span class="fu">list</span>(cyd, <span class="fu">channel_desktop</span>()),</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="at">total_steps =</span> <span class="dv">50</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>)</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>job<span class="sc">$</span><span class="fu">start</span>(<span class="st">&quot;Starting bootstrap iterations...&quot;</span>)</span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">50</span>) {</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>  <span class="fu">Sys.sleep</span>(<span class="fl">0.1</span>)</span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>  <span class="fu">notify_step</span>(job, <span class="at">step =</span> i, <span class="at">message =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Processing replicate %d / 50&quot;</span>, i))</span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>}</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>job<span class="sc">$</span><span class="fu">complete</span>(<span class="st">&quot;All iterations converged successfully.&quot;</span>)</span></code></pre></div>
+</div>
+<div id="method-b-wired-via-usb-serial" class="section level3">
+<h3>Method B: Wired via USB Serial</h3>
+<p>If your CYD is plugged directly into a USB port on your
+workstation:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">library</span>(rNotify)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co"># Directly access the USB serial port</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>cyd <span class="ot">&lt;-</span> <span class="fu">channel_cyd_serial</span>(<span class="at">port =</span> <span class="st">&quot;COM7&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>job <span class="ot">&lt;-</span> <span class="fu">notify_job</span>(</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">&quot;Local Analysis&quot;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">channels =</span> cyd,</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">total_steps =</span> <span class="dv">100</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>)</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">100</span>) {</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="fu">Sys.sleep</span>(<span class="fl">0.05</span>)</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="fu">notify_step</span>(job, <span class="at">step =</span> i)</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>}</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>job<span class="sc">$</span><span class="fu">complete</span>()</span></code></pre></div>
+</div>
+<div id="method-c-over-wi-fi-http" class="section level3">
+<h3>Method C: Over Wi-Fi (HTTP)</h3>
+<p>If you prefer operating over local network Wi-Fi:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">library</span>(rNotify)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co"># Point to the CYD&#39;s Wi-Fi IP address</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>cyd <span class="ot">&lt;-</span> <span class="fu">channel_cyd</span>(<span class="at">host =</span> <span class="st">&quot;192.168.1.150&quot;</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>job <span class="ot">&lt;-</span> <span class="fu">notify_job</span>(</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">&quot;Cluster Simulation&quot;</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">channels =</span> cyd</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>)</span></code></pre></div>
+<hr />
+</div>
+</div>
+<div id="nested-loops-subtask-telemetry" class="section level2">
+<h2>5. Nested Loops &amp; Subtask Telemetry</h2>
+<p>The CYD firmware features a dedicated <strong>inner subtask progress
+bar</strong> specifically designed for nested algorithms (such as
+bootstrap replicates within each parameter set, or folds within
+cross-validation).</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">library</span>(rNotify)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>cyd <span class="ot">&lt;-</span> <span class="fu">channel_cyd_bluetooth</span>(<span class="st">&quot;COM8&quot;</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>job <span class="ot">&lt;-</span> <span class="fu">notify_job</span>(</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">&quot;Statewide Creel Index&quot;</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">channels =</span> <span class="fu">list</span>(cyd, <span class="fu">channel_desktop</span>()),</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">total_steps =</span> <span class="dv">10</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>)</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>job<span class="sc">$</span><span class="fu">start</span>(<span class="st">&quot;Starting statewide run...&quot;</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>) {</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>  <span class="co"># Subtask initializes nested progress bar on CYD screen</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>  sub <span class="ot">&lt;-</span> job<span class="sc">$</span><span class="fu">subtask</span>(<span class="at">title =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Lake %d&quot;</span>, i), <span class="at">total_steps =</span> <span class="dv">100</span>, <span class="at">step_num =</span> i)</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">100</span>) {</span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>    <span class="fu">Sys.sleep</span>(<span class="fl">0.02</span>)</span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>    sub<span class="sc">$</span><span class="fu">progress</span>(<span class="at">step =</span> j, <span class="at">message =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Iteration %d&quot;</span>, j))</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>  }</span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a>  sub<span class="sc">$</span><span class="fu">complete</span>()</span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a>}</span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a>job<span class="sc">$</span><span class="fu">complete</span>(<span class="st">&quot;Finished statewide analysis.&quot;</span>)</span></code></pre></div>
+<hr />
+</div>
+<div id="onboard-status-indicators-protocol" class="section level2">
+<h2>6. Onboard Status Indicators &amp; Protocol</h2>
+<div id="rgb-led-feedback" class="section level3">
+<h3>RGB LED Feedback</h3>
+<p>The CYD onboard RGB LED mirrors your job lifecycle: - <strong>Idle /
+Ready</strong>: Soft Cyan / Blue - <strong>Running (<code>start</code>,
+<code>progress</code>, <code>step</code>)</strong>: Vibrant Blue / Cyan
+- <strong>Complete (<code>complete</code>)</strong>: Bright Green -
+<strong>Failure / Crash (<code>error</code>,
+<code>catastrophic</code>)</strong>: High-visibility Red</p>
+</div>
+<div id="serial-json-protocol" class="section level3">
+<h3>Serial &amp; JSON Protocol</h3>
+<p><code>channel_cyd</code> sends newline-terminated JSON strings over
+Bluetooth and USB Serial at 115200 baud:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Statewide Creel Index&quot;</span><span class="fu">,</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="dt">&quot;event&quot;</span><span class="fu">:</span> <span class="st">&quot;progress&quot;</span><span class="fu">,</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="dt">&quot;status_text&quot;</span><span class="fu">:</span> <span class="st">&quot;RUNNING&quot;</span><span class="fu">,</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="dt">&quot;status_color&quot;</span><span class="fu">:</span> <span class="st">&quot;#33DD66&quot;</span><span class="fu">,</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="dt">&quot;progress_pct&quot;</span><span class="fu">:</span> <span class="dv">24</span><span class="fu">,</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="dt">&quot;step_info&quot;</span><span class="fu">:</span> <span class="st">&quot;12 / 50&quot;</span><span class="fu">,</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="dt">&quot;inner_pct&quot;</span><span class="fu">:</span> <span class="dv">45</span><span class="fu">,</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>  <span class="dt">&quot;inner_info&quot;</span><span class="fu">:</span> <span class="st">&quot;450 / 1000&quot;</span><span class="fu">,</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Fitting Lake McConaughy&quot;</span><span class="fu">,</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>  <span class="dt">&quot;elapsed&quot;</span><span class="fu">:</span> <span class="st">&quot;01:14:22&quot;</span><span class="fu">,</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>  <span class="dt">&quot;eta&quot;</span><span class="fu">:</span> <span class="st">&quot;04:02:10&quot;</span><span class="fu">,</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  <span class="dt">&quot;channels&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;cyd&quot;</span><span class="ot">,</span> <span class="st">&quot;desktop&quot;</span><span class="ot">]</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Upon receiving each valid payload, the CYD immediately updates its
+canvas and returns <code>{&quot;status&quot;:&quot;ok&quot;}</code>.</p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

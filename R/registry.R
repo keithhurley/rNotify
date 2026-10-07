@@ -140,8 +140,22 @@ resolve_channels <- function(channels = "all") {
 #' @export
 announce_channels <- function(title, channels, pid = Sys.getpid(), sentinel_active = FALSE) {
   ch_desc <- vapply(channels, function(ch) {
-    if (ch$name == "cyd" && !is.null(ch$meta$host)) {
-      sprintf("CYD (%s:%s)", ch$meta$host, ch$meta$port)
+    if (ch$name == "cyd") {
+      tr <- if (!is.null(ch$transport)) ch$transport else ch$meta$transport
+      tgt <- if (!is.null(ch$target)) ch$target else ch$meta$target
+      if (identical(tr, "bluetooth")) {
+        sprintf("CYD Bluetooth (%s)", tgt)
+      } else if (identical(tr, "serial")) {
+        sprintf("CYD Serial (%s)", tgt)
+      } else if (!is.null(tgt) && grepl("^(COM[0-9]+|/dev/)", tgt, ignore.case = TRUE)) {
+        sprintf("CYD (%s)", tgt)
+      } else if (!is.null(ch$meta$host)) {
+        sprintf("CYD (%s:%s)", ch$meta$host, ch$meta$port)
+      } else if (!is.null(tgt)) {
+        sprintf("CYD (%s)", tgt)
+      } else {
+        "CYD"
+      }
     } else if (ch$name == "ntfy" && !is.null(ch$meta$topic)) {
       sprintf("ntfy [%s]", ch$meta$topic)
     } else if (ch$name == "email" && !is.null(ch$meta$to)) {

@@ -24,6 +24,7 @@ Suggests:
     testthat (>= 3.0.0),
     callr,
     blastula,
+    serial,
     knitr,
     rmarkdown
 VignetteBuilder: knitr

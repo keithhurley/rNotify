@@ -174,14 +174,20 @@ Standard R scripts cannot notify you if R hard-crashes (such as a C-level segmen
 
 `rNotify` includes reference firmware for the **ESP32-2432S028R** Cheap Yellow Display module in `inst/cyd_firmware/`. 
 
-It displays:
-- Color-coded status header (Cyan = Running, Green = Complete, Red = Failed/Crashed)
-- Outer progress bar & percentage
-- Inner subtask progress bar & percentage
-- Elapsed runtime and projected ETA
-- Active channels footer
+It supports three connectivity modes from inside R:
+- **Bluetooth Serial (SPP)** (Wireless): Pair `rNotify-CYD` and drive directly from R via `channel_cyd_bluetooth("COM8")` with zero network setup.
+- **USB Serial** (Wired): Direct plug-and-play via `channel_cyd_serial("COM7")`.
+- **Wi-Fi REST** (Network): HTTP POST updates via `channel_cyd(host = "192.168.1.150")`.
 
-See [`inst/cyd_firmware/README.md`](inst/cyd_firmware/README.md) for flashing instructions.
+Features:
+- Color-coded status header (Cyan = Running, Green = Complete, Red = Failed/Crashed)
+- Onboard active-LOW RGB status LED
+- Outer loop progress bar & percentage
+- Inner loop / subtask progress bar & percentage
+- Elapsed runtime and projected ETA
+- Active transport and connection footer
+
+See [`inst/cyd_firmware/README.md`](inst/cyd_firmware/README.md) and the [CYD Setup Vignette](vignettes/cyd-setup-and-usage.Rmd) for complete instructions.
 
 ---
 

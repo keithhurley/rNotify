@@ -5,8 +5,11 @@
 \title{Cheap Yellow Display (CYD) ESP32 Hardware Channel}
 \usage{
 channel_cyd(
-  host = Sys.getenv("CYD_HOST", "127.0.0.1"),
-  port = 80,
+  target = NULL,
+  transport = c("auto", "bluetooth", "serial", "http"),
+  host = NULL,
+  port = NULL,
+  baud = 115200,
   path = "/api/notify",
   min_level = "inner",
   events = c("start", "progress", "step", "complete", "error", "catastrophic"),
@@ -15,12 +18,23 @@ channel_cyd(
 )
 }
 \arguments{
-\item{host}{IP address or hostname of the CYD module (e.g. "192.168.1.150").
-Defaults to \code{Sys.getenv("CYD_HOST", "127.0.0.1")}.}
+\item{target}{Target destination: either a COM/serial port for Bluetooth/USB
+(e.g. \code{"COM8"}, \code{"COM10"}, \code{"/dev/rfcomm0"}), or an IP/hostname for Wi-Fi
+(e.g. \code{"192.168.1.150"}). Defaults to \code{Sys.getenv("CYD_BT_PORT", Sys.getenv("CYD_HOST", "127.0.0.1"))}.}
 
-\item{port}{HTTP port on the CYD module (default: 80).}
+\item{transport}{Transport protocol: \code{"auto"} (default), \code{"bluetooth"},
+\code{"serial"}, or \code{"http"}. When \code{"auto"}, Bluetooth/serial is selected
+if \code{target} matches a serial/COM port pattern (e.g. \code{"COM3"}, \code{"/dev/tty*"}, \code{"/dev/rfcomm*"}),
+and HTTP is selected otherwise.}
 
-\item{path}{Endpoint path on the CYD (default: "/api/notify").}
+\item{host}{Deprecated alias for \code{target} (for backwards compatibility).}
+
+\item{port}{HTTP port on the CYD module (default: 80) when using HTTP transport,
+or serial/COM port when passed as a string (e.g. \code{"COM10"}).}
+
+\item{baud}{Baud rate for Bluetooth/USB serial communication (default: 115200).}
+
+\item{path}{Endpoint path on the CYD when using HTTP (default: "/api/notify").}
 
 \item{min_level}{Granularity level: "inner" (default, enables desk screen live updates)
 or "outer" (milestones only).}
@@ -29,12 +43,12 @@ or "outer" (milestones only).}
 
 \item{throttle_sec}{Minimum interval in seconds between CYD screen updates (default: 2.0).}
 
-\item{timeout_sec}{HTTP request timeout in seconds (default: 2.0).}
+\item{timeout_sec}{Request or connection timeout in seconds (default: 2.0).}
 }
 \value{
 An \code{rnotify_channel} object.
 }
 \description{
 Transmits real-time job status and progress telemetry to an ESP32 CYD module
-(2.8" or 2.4" 320x240 TFT LCD) over Wi-Fi via a lightweight REST HTTP endpoint.
+(2.8" or 2.4" 320x240 TFT LCD) over Bluetooth Serial (SPP), USB Serial, or Wi-Fi HTTP.
 }

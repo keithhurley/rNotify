@@ -48,6 +48,23 @@
 #' and status is unknown.
 #' }
 #'
+#' \subsection{Vignettes & User Guides}{
+#' The package includes three detailed HTML guides:
+#' \itemize{
+#'   \item \strong{Getting Started}: \code{vignette("getting-started", package = "rNotify")}
+#'     \cr Walkthrough of credential configuration, channel setups, throttles, single-stage
+#'     and nested loop tracking, and error handling.
+#'   \item \strong{Cheap Yellow Display (CYD) Hardware & Setup}: \code{vignette("cyd-setup-and-usage", package = "rNotify")}
+#'     \cr Hardware specifications, ESP32 pinouts, Arduino IDE / PlatformIO firmware flashing,
+#'     and driving the 320x240 LCD display over Wi-Fi.
+#'   \item \strong{Architecture & Technical Reference}: \code{vignette("package-guide", package = "rNotify")}
+#'     \cr Deep dive into the payload schema, fault isolation guarantees, throttling engine,
+#'     and the background crash sentinel (dead man's switch).
+#' }
+#' To open an interactive browser with all guides:
+#' \preformatted{browseVignettes("rNotify")}
+#' }
+#'
 #' @name rNotify-package
 #' @aliases rNotify
 #' @author Keith Hurley \email{keith.l.hurley@@gmail.com}

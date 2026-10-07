@@ -28,7 +28,6 @@
 # produced vignettes & docs
 vignettes/*.html
 vignettes/*.pdf
-inst/doc/
 
 # OAuth2 token
 .httr-oauth
@@ -61,3 +60,5 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+/doc/
+/Meta/
