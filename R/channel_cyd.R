@@ -77,7 +77,7 @@ channel_cyd <- function(target = NULL,
       target <- detected
       if (transport == "auto") transport <- "bluetooth"
     } else {
-      target <- if (.Platform$OS.type == "windows") "COM10" else "/dev/rfcomm0"
+      target <- if (.Platform$OS.type == "windows") "COM11" else "/dev/rfcomm0"
     }
   }
 
@@ -123,7 +123,7 @@ channel_cyd <- function(target = NULL,
   write_serial <- function(port_name, json_str) {
     # 1. Primary path: R package 'serial' for high-speed persistent connection
     if (requireNamespace("serial", quietly = TRUE)) {
-      tcl_str <- gsub('"', '\\"', json_str, fixed = TRUE)
+      raw_payload <- charToRaw(paste0(json_str, "\n"))
       serial_ok <- TRUE
 
       if (is.null(con_env$con)) {
@@ -133,7 +133,7 @@ channel_cyd <- function(target = NULL,
           port = port_name,
           mode = sprintf("%d,n,8,1", as.integer(baud)),
           buffering = "none",
-          newline = 1
+          newline = 0
         )
         res_open <- tryCatch({
           open(c_obj)
@@ -151,7 +151,7 @@ channel_cyd <- function(target = NULL,
 
       if (serial_ok && !is.null(con_env$con)) {
         res_write <- tryCatch({
-          serial::write.serialConnection(con_env$con, paste0(tcl_str, "\n"))
+          serial::write.serialConnection(con_env$con, raw_payload)
           TRUE
         }, error = function(e) {
           close_serial_con()
@@ -305,7 +305,7 @@ channel_cyd_bluetooth <- function(port = "auto",
       if (!is.null(detected)) {
         target_port <- detected
       } else {
-        target_port <- if (.Platform$OS.type == "windows") "COM10" else "/dev/rfcomm0"
+        target_port <- if (.Platform$OS.type == "windows") "COM11" else "/dev/rfcomm0"
       }
     }
   }
@@ -403,12 +403,12 @@ detect_cyd_port <- function(type = c("any", "bluetooth", "serial")) {
     ps_code <- paste(
       "$ProgressPreference = 'SilentlyContinue'",
       "$res = @{}",
-      "# 1. Bluetooth rNotify-CYD",
+      "# 1. Bluetooth: match rNotify-CYD device address in BTHENUM Device Parameters",
       "$bt = Get-PnpDevice -Class Bluetooth -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'rNotify' }",
       "if ($bt -and $bt.InstanceId -match 'DEV_([0-9A-Fa-f]{12})') {",
       "  $addr = $Matches[1]",
-      "  $p = Get-PnpDevice -Class Ports -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match $addr }",
-      "  if ($p -and $p.FriendlyName -match '\\((COM\\d+)\\)') { $res['bluetooth'] = $Matches[1] }",
+      "  $devParams = Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Enum\\BTHENUM\\*\\*\\Device Parameters' -ErrorAction SilentlyContinue | Where-Object { $_.PSParentPath -match $addr -and $_.PortName }",
+      "  if ($devParams) { $res['bluetooth'] = $devParams[0].PortName }",
       "}",
       "# 2. USB Serial CH340 / CP210x / FTDI",
       "$usb = Get-PnpDevice -Class Ports -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'CH340|CP210|FTDI' }",
