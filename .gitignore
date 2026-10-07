@@ -5,6 +5,7 @@
 # Session Data files
 .RData
 .RDataTmp
+.Rdata
 
 # User-specific files
 .Ruserdata
@@ -17,15 +18,19 @@
 
 # Output files from R CMD check
 /*.Rcheck/
+*.Rcheck/
 
 # RStudio files
 .Rproj.user/
+.Rproj
+*.Rproj
 
-# produced vignettes
+# produced vignettes & docs
 vignettes/*.html
 vignettes/*.pdf
+inst/doc/
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
+# OAuth2 token
 .httr-oauth
 
 # knitr and R markdown default cache directories
@@ -36,9 +41,17 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
-# R Environment Variables
+# R Environment Variables & local secrets
 .Renviron
 .env
+
+# rNotify local job cache and logs
+.rnotify/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
 
 # pkgdown site
 docs/

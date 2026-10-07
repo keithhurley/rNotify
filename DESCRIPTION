@@ -1,0 +1,27 @@
+Package: rNotify
+Title: Resilient Multi-Channel Notifications and Progress Tracking for R Jobs
+Version: 0.1.0
+Authors@R: person("Keith", "Hurley", email = "keith.l.hurley@gmail.com", role = c("aut", "cre"))
+Description: Provides a unified, resilient multi-channel notification and process-monitoring
+    framework for R scripts and long-running computational jobs. Features multiplexed dispatch
+    to mobile push (Pushover, ntfy.sh), email, desktop notifications with chimes, generic
+    webhooks, and Cheap Yellow Display (CYD) ESP32 hardware modules. Includes single-stage and
+    nested loop progress tracking with composite global ETAs, multi-level throttling (time
+    intervals and percentage milestones), zero-impact fault isolation, and a detached
+    background sentinel (dead man's switch) that notifies channels if the R session aborts
+    or crashes unexpectedly.
+License: MIT + file LICENSE
+URL: https://github.com/keithhurley/rNotify
+BugReports: https://github.com/keithhurley/rNotify/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    curl,
+    jsonlite,
+    R6
+Suggests:
+    testthat (>= 3.0.0),
+    callr,
+    blastula
+Config/testthat/edition: 3
