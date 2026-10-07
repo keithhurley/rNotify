@@ -52,11 +52,11 @@ arduino-cli upload -p <COM_PORT> --fqbn esp32:esp32:esp32:PartitionScheme=huge_a
 ```r
 library(rNotify)
 
-# Bluetooth wireless connection
-cyd <- channel_cyd_bluetooth(port = "COM8")
+# Bluetooth wireless connection (auto-detects port or specify port = "COM10")
+cyd <- channel_cyd_bluetooth()
 
-# Or wired USB connection
-# cyd <- channel_cyd_serial(port = "COM7")
+# Or wired USB connection (auto-detects port or specify port = "COM7")
+# cyd <- channel_cyd_serial()
 
 job <- notify_job(
   title = "Bootstrap Simulation",

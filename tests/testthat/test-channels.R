@@ -56,5 +56,15 @@ test_that("channel_cyd supports bluetooth, serial, and http transports", {
   ch_http <- channel_cyd(target = "192.168.1.150")
   expect_equal(ch_http$transport, "http")
   expect_equal(ch_http$target, "192.168.1.150")
+
+  # Port argument passed as COM port
+  ch_port <- channel_cyd(port = "COM10")
+  expect_equal(ch_port$transport, "bluetooth")
+  expect_equal(ch_port$target, "COM10")
+
+  # detect_cyd_port function runs safely
+  expect_true(is.character(detect_cyd_port("any")) || is.null(detect_cyd_port("any")))
+  expect_true(is.character(detect_cyd_port("bluetooth")) || is.null(detect_cyd_port("bluetooth")))
+  expect_true(is.character(detect_cyd_port("serial")) || is.null(detect_cyd_port("serial")))
 })
 

@@ -5,7 +5,7 @@
 \title{Cheap Yellow Display (CYD) Bluetooth Channel}
 \usage{
 channel_cyd_bluetooth(
-  port = Sys.getenv("CYD_BT_PORT", "COM8"),
+  port = "auto",
   baud = 115200,
   min_level = "inner",
   events = c("start", "progress", "step", "complete", "error", "catastrophic"),
@@ -14,9 +14,9 @@ channel_cyd_bluetooth(
 )
 }
 \arguments{
-\item{port}{Bluetooth virtual COM port (e.g., \code{"COM8"}, \code{"COM10"} on Windows,
+\item{port}{Bluetooth virtual COM port (e.g. \code{"auto"}, \code{"COM10"} on Windows,
 \code{"/dev/rfcomm0"} on Linux, or \code{"/dev/tty.rNotify-CYD"} on macOS).
-Defaults to \code{Sys.getenv("CYD_BT_PORT", "COM8")}.}
+Defaults to \code{"auto"}, which automatically scans and identifies the paired CYD.}
 
 \item{baud}{Baud rate for Bluetooth serial communication (default: 115200).}
 
@@ -38,7 +38,10 @@ paired over Bluetooth Serial (SPP).
 }
 \examples{
 \dontrun{
-# Connect to paired Bluetooth CYD on COM10
+# Connect via auto-detection
+cyd <- channel_cyd_bluetooth()
+
+# Connect explicitly via outgoing port COM10
 cyd <- channel_cyd_bluetooth("COM10")
 job <- notify_job("Model Training", channels = cyd)
 }

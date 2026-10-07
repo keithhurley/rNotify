@@ -175,8 +175,8 @@ Standard R scripts cannot notify you if R hard-crashes (such as a C-level segmen
 `rNotify` includes reference firmware for the **ESP32-2432S028R** Cheap Yellow Display module in `inst/cyd_firmware/`. 
 
 It supports three connectivity modes from inside R:
-- **Bluetooth Serial (SPP)** (Wireless): Pair `rNotify-CYD` and drive directly from R via `channel_cyd_bluetooth("COM8")` with zero network setup.
-- **USB Serial** (Wired): Direct plug-and-play via `channel_cyd_serial("COM7")`.
+- **Bluetooth Serial (SPP)** (Wireless): Pair `rNotify-CYD` and drive directly from R via `channel_cyd_bluetooth()` (auto-detects port or specify `port = "COM10"`) with zero network setup.
+- **USB Serial** (Wired): Direct plug-and-play via `channel_cyd_serial()` (auto-detects port or specify `port = "COM7"`).
 - **Wi-Fi REST** (Network): HTTP POST updates via `channel_cyd(host = "192.168.1.150")`.
 
 Features:

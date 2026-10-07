@@ -4,15 +4,15 @@
 #' (2.8" or 2.4" 320x240 TFT LCD) over Bluetooth Serial (SPP), USB Serial, or Wi-Fi HTTP.
 #'
 #' @param target Target destination: either a COM/serial port for Bluetooth/USB
-#'   (e.g. \code{"COM8"}, \code{"COM10"}, \code{"/dev/rfcomm0"}), or an IP/hostname for Wi-Fi
-#'   (e.g. \code{"192.168.1.150"}). Defaults to \code{Sys.getenv("CYD_BT_PORT", Sys.getenv("CYD_HOST", "127.0.0.1"))}.
+#'   (e.g. \code{"auto"}, \code{"COM10"}, \code{"COM7"}, \code{"/dev/rfcomm0"}), or an IP/hostname for Wi-Fi
+#'   (e.g. \code{"192.168.1.150"}). If omitted or \code{"auto"}, automatically detects the active port.
 #' @param transport Transport protocol: \code{"auto"} (default), \code{"bluetooth"},
 #'   \code{"serial"}, or \code{"http"}. When \code{"auto"}, Bluetooth/serial is selected
 #'   if \code{target} matches a serial/COM port pattern (e.g. \code{"COM3"}, \code{"/dev/tty*"}, \code{"/dev/rfcomm*"}),
 #'   and HTTP is selected otherwise.
 #' @param host Deprecated alias for \code{target} (for backwards compatibility).
 #' @param port HTTP port on the CYD module (default: 80) when using HTTP transport,
-#'   or serial/COM port when passed as a string (e.g. \code{"COM10"}).
+#'   or serial/COM port when passed as a string (e.g. \code{"COM10"} or \code{"auto"}).
 #' @param baud Baud rate for Bluetooth/USB serial communication (default: 115200).
 #' @param path Endpoint path on the CYD when using HTTP (default: "/api/notify").
 #' @param min_level Granularity level: "inner" (default, enables desk screen live updates)
@@ -34,8 +34,8 @@ channel_cyd <- function(target = NULL,
                         timeout_sec = 2.0) {
   transport <- match.arg(transport)
 
-  # Check if port was passed as a COM port: e.g. channel_cyd(port = "COM10")
-  if (is.character(port) && grepl("^(COM[0-9]+|/dev/|bluetooth:)", port, ignore.case = TRUE)) {
+  # Check if port was passed as a COM port or "auto": e.g. channel_cyd(port = "COM10")
+  if (is.character(port) && grepl("^(auto|COM[0-9]+|/dev/|bluetooth:)", port, ignore.case = TRUE)) {
     target <- port
     if (transport == "auto") transport <- "bluetooth"
     http_port <- 80L
@@ -45,7 +45,7 @@ channel_cyd <- function(target = NULL,
   } else if (!is.null(target)) {
     http_port <- if (!is.null(port) && is.numeric(port)) as.integer(port) else 80L
   } else {
-    # Check env vars
+    # Check env vars or default to auto
     bt_env <- Sys.getenv("CYD_BT_PORT", "")
     host_env <- Sys.getenv("CYD_HOST", "")
     port_env <- Sys.getenv("CYD_PORT", "")
@@ -57,9 +57,28 @@ channel_cyd <- function(target = NULL,
     } else if (nzchar(port_env)) {
       target <- port_env
     } else {
-      target <- "127.0.0.1"
+      # Try auto-detecting an active hardware port
+      detected <- detect_cyd_port("any")
+      if (!is.null(detected)) {
+        target <- detected
+        if (transport == "auto") transport <- "bluetooth"
+      } else {
+        target <- "127.0.0.1"
+      }
     }
     http_port <- if (!is.null(port) && is.numeric(port)) as.integer(port) else 80L
+  }
+
+  # If target is "auto", attempt hardware detection
+  if (identical(target, "auto")) {
+    req_type <- if (transport == "serial") "serial" else if (transport == "bluetooth") "bluetooth" else "any"
+    detected <- detect_cyd_port(req_type)
+    if (!is.null(detected)) {
+      target <- detected
+      if (transport == "auto") transport <- "bluetooth"
+    } else {
+      target <- if (.Platform$OS.type == "windows") "COM10" else "/dev/rfcomm0"
+    }
   }
 
   # Auto-detect transport from target string
@@ -87,12 +106,26 @@ channel_cyd <- function(target = NULL,
     }
   }
 
-  write_serial <- function(port_name, json_str) {
-    if (requireNamespace("serial", quietly = TRUE)) {
-      # Escape double quotes for Tcl's string parser inside package serial
-      tcl_str <- gsub('"', '\\"', json_str, fixed = TRUE)
+  write_serial_powershell <- function(port_name, baud_rate, json_payload) {
+    ps_code <- sprintf(
+      "$ProgressPreference = 'SilentlyContinue'; $p = New-Object System.IO.Ports.SerialPort '%s', %d; $p.Open(); $p.WriteLine('%s'); Start-Sleep -Milliseconds 50; $p.Close()",
+      port_name, as.integer(baud_rate), gsub("'", "''", json_payload, fixed = TRUE)
+    )
+    raw_val <- iconv(ps_code, to = "UTF-16LE", toRaw = TRUE)[[1]]
+    b64 <- jsonlite::base64_enc(raw_val)
+    res <- system2("powershell", c("-NoProfile", "-NonInteractive", "-EncodedCommand", b64), stdout = FALSE, stderr = FALSE)
+    if (res != 0) {
+      stop(sprintf("Failed to write to serial port %s via PowerShell (exit code %d).", port_name, res))
+    }
+    invisible(TRUE)
+  }
 
-      # Attempt to reuse or open connection
+  write_serial <- function(port_name, json_str) {
+    # 1. Primary path: R package 'serial' for high-speed persistent connection
+    if (requireNamespace("serial", quietly = TRUE)) {
+      tcl_str <- gsub('"', '\\"', json_str, fixed = TRUE)
+      serial_ok <- TRUE
+
       if (is.null(con_env$con)) {
         con_name <- paste0("cyd_", gsub("[^A-Za-z0-9]", "_", port_name))
         c_obj <- serial::serialConnection(
@@ -102,37 +135,44 @@ channel_cyd <- function(target = NULL,
           buffering = "none",
           newline = 1
         )
-        tryCatch(open(c_obj), error = function(e) {
-          stop(sprintf("Failed to open serial port %s: %s", port_name, conditionMessage(e)))
+        res_open <- tryCatch({
+          open(c_obj)
+          TRUE
+        }, error = function(e) {
+          try(close(c_obj), silent = TRUE)
+          FALSE
         })
-        con_env$con <- c_obj
+        if (isTRUE(res_open)) {
+          con_env$con <- c_obj
+        } else {
+          serial_ok <- FALSE
+        }
       }
 
-      tryCatch({
-        serial::write.serialConnection(con_env$con, paste0(tcl_str, "\n"))
-      }, error = function(e) {
-        close_serial_con()
-        stop(sprintf("Failed to write to serial port %s: %s", port_name, conditionMessage(e)))
-      })
-      return(invisible(TRUE))
-    } else if (.Platform$OS.type == "windows") {
-      # Fallback via PowerShell .NET SerialPort without requiring external packages
-      cmd <- sprintf(
-        '$p = new-object System.IO.Ports.SerialPort "%s", %d; $p.Open(); $p.WriteLine(\x27%s\x27); $p.Close()',
-        port_name, as.integer(baud), gsub("'", "''", json_str, fixed = TRUE)
-      )
-      res <- system2("powershell", c("-NoProfile", "-Command", cmd), stdout = FALSE, stderr = FALSE)
-      if (res != 0) {
-        stop(sprintf("Failed to write to serial port %s via PowerShell (exit code %d).", port_name, res))
+      if (serial_ok && !is.null(con_env$con)) {
+        res_write <- tryCatch({
+          serial::write.serialConnection(con_env$con, paste0(tcl_str, "\n"))
+          TRUE
+        }, error = function(e) {
+          close_serial_con()
+          FALSE
+        })
+        if (isTRUE(res_write)) {
+          return(invisible(TRUE))
+        }
       }
-      return(invisible(TRUE))
-    } else {
-      # Fallback on Unix / Linux / macOS using file connection
-      con <- file(port_name, open = "w")
-      on.exit(try(close(con), silent = TRUE), add = TRUE)
-      writeLines(json_str, con)
-      return(invisible(TRUE))
     }
+
+    # 2. Resilient Fallback for Windows: native .NET SerialPort via PowerShell
+    if (.Platform$OS.type == "windows") {
+      return(write_serial_powershell(port_name, baud, json_str))
+    }
+
+    # 3. Resilient Fallback for Linux / macOS: raw POSIX file connection
+    con <- file(port_name, open = "w")
+    on.exit(try(close(con), silent = TRUE), add = TRUE)
+    writeLines(json_str, con)
+    invisible(TRUE)
   }
 
   handler <- function(payload) {
@@ -229,9 +269,9 @@ channel_cyd <- function(target = NULL,
 #' Convenience constructor for sending rNotify job telemetry to a CYD module
 #' paired over Bluetooth Serial (SPP).
 #'
-#' @param port Bluetooth virtual COM port (e.g., \code{"COM8"}, \code{"COM10"} on Windows,
+#' @param port Bluetooth virtual COM port (e.g. \code{"auto"}, \code{"COM10"} on Windows,
 #'   \code{"/dev/rfcomm0"} on Linux, or \code{"/dev/tty.rNotify-CYD"} on macOS).
-#'   Defaults to \code{Sys.getenv("CYD_BT_PORT", "COM8")}.
+#'   Defaults to \code{"auto"}, which automatically scans and identifies the paired CYD.
 #' @param baud Baud rate for Bluetooth serial communication (default: 115200).
 #' @param min_level Granularity level: "inner" (default, enables desk screen live updates)
 #'   or "outer" (milestones only).
@@ -242,18 +282,36 @@ channel_cyd <- function(target = NULL,
 #' @export
 #' @examples
 #' \dontrun{
-#' # Connect to paired Bluetooth CYD on COM10
+#' # Connect via auto-detection
+#' cyd <- channel_cyd_bluetooth()
+#'
+#' # Connect explicitly via outgoing port COM10
 #' cyd <- channel_cyd_bluetooth("COM10")
 #' job <- notify_job("Model Training", channels = cyd)
 #' }
-channel_cyd_bluetooth <- function(port = Sys.getenv("CYD_BT_PORT", "COM8"),
+channel_cyd_bluetooth <- function(port = "auto",
                                   baud = 115200,
                                   min_level = "inner",
                                   events = c("start", "progress", "step", "complete", "error", "catastrophic"),
                                   throttle_sec = 2.0,
                                   timeout_sec = 2.0) {
+  target_port <- port
+  if (is.null(target_port) || identical(target_port, "auto")) {
+    env_port <- Sys.getenv("CYD_BT_PORT", "")
+    if (nzchar(env_port)) {
+      target_port <- env_port
+    } else {
+      detected <- detect_cyd_port("bluetooth")
+      if (!is.null(detected)) {
+        target_port <- detected
+      } else {
+        target_port <- if (.Platform$OS.type == "windows") "COM10" else "/dev/rfcomm0"
+      }
+    }
+  }
+
   channel_cyd(
-    target = port,
+    target = target_port,
     transport = "bluetooth",
     baud = baud,
     min_level = min_level,
@@ -268,8 +326,8 @@ channel_cyd_bluetooth <- function(port = Sys.getenv("CYD_BT_PORT", "COM8"),
 #' Convenience constructor for sending rNotify job telemetry to a CYD module
 #' connected directly via USB cable.
 #'
-#' @param port Serial port (e.g., \code{"COM7"} on Windows or \code{"/dev/ttyUSB0"} on Linux).
-#'   Defaults to \code{Sys.getenv("CYD_SERIAL_PORT", "COM7")}.
+#' @param port Serial port (e.g. \code{"auto"}, \code{"COM7"} on Windows or \code{"/dev/ttyUSB0"} on Linux).
+#'   Defaults to \code{"auto"}, which automatically detects the USB serial adapter.
 #' @param baud Baud rate for USB serial communication (default: 115200).
 #' @param min_level Granularity level: "inner" (default, enables desk screen live updates)
 #'   or "outer" (milestones only).
@@ -280,18 +338,36 @@ channel_cyd_bluetooth <- function(port = Sys.getenv("CYD_BT_PORT", "COM8"),
 #' @export
 #' @examples
 #' \dontrun{
+#' # Connect via auto-detection
+#' cyd <- channel_cyd_serial()
+#'
 #' # Connect to wired USB CYD on COM7
 #' cyd <- channel_cyd_serial("COM7")
 #' job <- notify_job("Simulations", channels = cyd)
 #' }
-channel_cyd_serial <- function(port = Sys.getenv("CYD_SERIAL_PORT", "COM7"),
+channel_cyd_serial <- function(port = "auto",
                                baud = 115200,
                                min_level = "inner",
                                events = c("start", "progress", "step", "complete", "error", "catastrophic"),
                                throttle_sec = 2.0,
                                timeout_sec = 2.0) {
+  target_port <- port
+  if (is.null(target_port) || identical(target_port, "auto")) {
+    env_port <- Sys.getenv("CYD_SERIAL_PORT", "")
+    if (nzchar(env_port)) {
+      target_port <- env_port
+    } else {
+      detected <- detect_cyd_port("serial")
+      if (!is.null(detected)) {
+        target_port <- detected
+      } else {
+        target_port <- if (.Platform$OS.type == "windows") "COM7" else "/dev/ttyUSB0"
+      }
+    }
+  }
+
   channel_cyd(
-    target = port,
+    target = target_port,
     transport = "serial",
     baud = baud,
     min_level = min_level,
@@ -299,4 +375,87 @@ channel_cyd_serial <- function(port = Sys.getenv("CYD_SERIAL_PORT", "COM7"),
     throttle_sec = throttle_sec,
     timeout_sec = timeout_sec
   )
+}
+
+#' Auto-detect Cheap Yellow Display (CYD) Port
+#'
+#' Scans available serial and Bluetooth connections to automatically locate
+#' an attached or paired ESP32 CYD device.
+#'
+#' @param type Connection type to detect: \code{"any"} (default), \code{"bluetooth"},
+#'   or \code{"serial"}.
+#' @return Detected port name (e.g. \code{"COM10"} or \code{"COM7"} on Windows,
+#'   \code{"/dev/cu.rNotify-CYD"} on macOS, or \code{"/dev/rfcomm0"} on Linux),
+#'   or \code{NULL} if no device could be automatically detected.
+#' @export
+#' @examples
+#' \dontrun{
+#' # Auto-detect paired Bluetooth port
+#' bt_port <- detect_cyd_port("bluetooth")
+#'
+#' # Auto-detect wired USB port
+#' usb_port <- detect_cyd_port("serial")
+#' }
+detect_cyd_port <- function(type = c("any", "bluetooth", "serial")) {
+  type <- match.arg(type)
+
+  if (.Platform$OS.type == "windows") {
+    ps_code <- paste(
+      "$ProgressPreference = 'SilentlyContinue'",
+      "$res = @{}",
+      "# 1. Bluetooth rNotify-CYD",
+      "$bt = Get-PnpDevice -Class Bluetooth -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'rNotify' }",
+      "if ($bt -and $bt.InstanceId -match 'DEV_([0-9A-Fa-f]{12})') {",
+      "  $addr = $Matches[1]",
+      "  $p = Get-PnpDevice -Class Ports -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match $addr }",
+      "  if ($p -and $p.FriendlyName -match '\\((COM\\d+)\\)') { $res['bluetooth'] = $Matches[1] }",
+      "}",
+      "# 2. USB Serial CH340 / CP210x / FTDI",
+      "$usb = Get-PnpDevice -Class Ports -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'CH340|CP210|FTDI' }",
+      "if ($usb -and $usb.FriendlyName -match '\\((COM\\d+)\\)') { $res['serial'] = $Matches[1] }",
+      "foreach ($k in $res.Keys) { Write-Output ($k + '=' + $res[$k]) }",
+      sep = "\n"
+    )
+
+    raw_val <- iconv(ps_code, to = "UTF-16LE", toRaw = TRUE)[[1]]
+    b64 <- jsonlite::base64_enc(raw_val)
+    out <- suppressWarnings(tryCatch({
+      system2("powershell", c("-NoProfile", "-NonInteractive", "-EncodedCommand", b64), stdout = TRUE, stderr = FALSE)
+    }, error = function(e) character(0)))
+
+    ports <- list()
+    for (line in out) {
+      if (grepl("^bluetooth=", line)) ports$bluetooth <- sub("^bluetooth=", "", line)
+      if (grepl("^serial=", line))    ports$serial    <- sub("^serial=", "", line)
+    }
+
+    if (type == "bluetooth" && !is.null(ports$bluetooth)) return(ports$bluetooth)
+    if (type == "serial"    && !is.null(ports$serial))    return(ports$serial)
+    if (type == "any") {
+      if (!is.null(ports$bluetooth)) return(ports$bluetooth)
+      if (!is.null(ports$serial))    return(ports$serial)
+    }
+  } else if (Sys.info()["sysname"] == "Darwin") {
+    # macOS
+    bt_ports  <- list.files("/dev", pattern = "^(cu|tty)\\.rNotify-CYD", full.names = TRUE)
+    usb_ports <- list.files("/dev", pattern = "^(cu|tty)\\.(usbserial|wchusbserial)", full.names = TRUE)
+    if (type == "bluetooth" && length(bt_ports) > 0)  return(bt_ports[1])
+    if (type == "serial"    && length(usb_ports) > 0) return(usb_ports[1])
+    if (type == "any") {
+      if (length(bt_ports) > 0)  return(bt_ports[1])
+      if (length(usb_ports) > 0) return(usb_ports[1])
+    }
+  } else {
+    # Linux
+    bt_ports  <- list.files("/dev", pattern = "^rfcomm", full.names = TRUE)
+    usb_ports <- list.files("/dev", pattern = "^ttyUSB|^ttyACM", full.names = TRUE)
+    if (type == "bluetooth" && length(bt_ports) > 0)  return(bt_ports[1])
+    if (type == "serial"    && length(usb_ports) > 0) return(usb_ports[1])
+    if (type == "any") {
+      if (length(bt_ports) > 0)  return(bt_ports[1])
+      if (length(usb_ports) > 0) return(usb_ports[1])
+    }
+  }
+
+  NULL
 }

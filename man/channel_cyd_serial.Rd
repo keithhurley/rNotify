@@ -5,7 +5,7 @@
 \title{Cheap Yellow Display (CYD) USB Serial Channel}
 \usage{
 channel_cyd_serial(
-  port = Sys.getenv("CYD_SERIAL_PORT", "COM7"),
+  port = "auto",
   baud = 115200,
   min_level = "inner",
   events = c("start", "progress", "step", "complete", "error", "catastrophic"),
@@ -14,8 +14,8 @@ channel_cyd_serial(
 )
 }
 \arguments{
-\item{port}{Serial port (e.g., \code{"COM7"} on Windows or \code{"/dev/ttyUSB0"} on Linux).
-Defaults to \code{Sys.getenv("CYD_SERIAL_PORT", "COM7")}.}
+\item{port}{Serial port (e.g. \code{"auto"}, \code{"COM7"} on Windows or \code{"/dev/ttyUSB0"} on Linux).
+Defaults to \code{"auto"}, which automatically detects the USB serial adapter.}
 
 \item{baud}{Baud rate for USB serial communication (default: 115200).}
 
@@ -37,6 +37,9 @@ connected directly via USB cable.
 }
 \examples{
 \dontrun{
+# Connect via auto-detection
+cyd <- channel_cyd_serial()
+
 # Connect to wired USB CYD on COM7
 cyd <- channel_cyd_serial("COM7")
 job <- notify_job("Simulations", channels = cyd)

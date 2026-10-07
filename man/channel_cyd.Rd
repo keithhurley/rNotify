@@ -19,8 +19,8 @@ channel_cyd(
 }
 \arguments{
 \item{target}{Target destination: either a COM/serial port for Bluetooth/USB
-(e.g. \code{"COM8"}, \code{"COM10"}, \code{"/dev/rfcomm0"}), or an IP/hostname for Wi-Fi
-(e.g. \code{"192.168.1.150"}). Defaults to \code{Sys.getenv("CYD_BT_PORT", Sys.getenv("CYD_HOST", "127.0.0.1"))}.}
+(e.g. \code{"auto"}, \code{"COM10"}, \code{"COM7"}, \code{"/dev/rfcomm0"}), or an IP/hostname for Wi-Fi
+(e.g. \code{"192.168.1.150"}). If omitted or \code{"auto"}, automatically detects the active port.}
 
 \item{transport}{Transport protocol: \code{"auto"} (default), \code{"bluetooth"},
 \code{"serial"}, or \code{"http"}. When \code{"auto"}, Bluetooth/serial is selected
@@ -30,7 +30,7 @@ and HTTP is selected otherwise.}
 \item{host}{Deprecated alias for \code{target} (for backwards compatibility).}
 
 \item{port}{HTTP port on the CYD module (default: 80) when using HTTP transport,
-or serial/COM port when passed as a string (e.g. \code{"COM10"}).}
+or serial/COM port when passed as a string (e.g. \code{"COM10"} or \code{"auto"}).}
 
 \item{baud}{Baud rate for Bluetooth/USB serial communication (default: 115200).}
 

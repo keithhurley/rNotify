@@ -121,16 +121,16 @@ To use the CYD wirelessly via Bluetooth from inside R:
 1. Open Windows **Settings > Bluetooth & devices**.
 2. Click **Add device > Bluetooth**.
 3. Select **`rNotify-CYD`** from the discovered device list and pair.
-4. Open **More Bluetooth settings > COM Ports** tab (or check Device Manager under *Ports (COM & LPT)*) to find the assigned **Outgoing COM Port** (typically `COM8` or `COM9`).
-5. Save the port in your `~/.Renviron`:
+4. Windows automatically creates Bluetooth Serial ports (an Inbound port and an Outbound port linked to the device). `rNotify` automatically detects the outbound port! You can also check Device Manager under *Ports (COM & LPT)* or run `detect_cyd_port("bluetooth")` from R to view it.
+5. (Optional) Save the port in your `~/.Renviron` if desired:
    ```bash
-   CYD_BT_PORT=COM8
+   CYD_BT_PORT=COM10
    ```
 
 ### macOS
 1. Open **System Settings > Bluetooth**.
 2. Pair with **`rNotify-CYD`**.
-3. A serial device appears at `/dev/tty.rNotify-CYD`.
+3. A serial device appears at `/dev/tty.rNotify-CYD` (automatically detected by `channel_cyd_bluetooth()`).
 
 ### Linux
 1. Pair using `bluetoothctl`:
@@ -143,27 +143,32 @@ To use the CYD wirelessly via Bluetooth from inside R:
    ```bash
    sudo rfcomm bind 0 <MAC_ADDRESS> 1
    ```
-3. Use `/dev/rfcomm0` in R.
+3. Use `/dev/rfcomm0` in R (or let `channel_cyd_bluetooth()` auto-detect).
 
 ---
 
 ## 4. Driving the CYD from R
 
 ### Method A: Wireless via Bluetooth (Recommended)
+You can connect with zero configuration using built-in port auto-detection, or pass your outgoing COM port explicitly:
+
 ```r
 library(rNotify)
 
-# Connect to paired Bluetooth CYD
-cyd <- channel_cyd_bluetooth(port = "COM8")
+# Option 1: Auto-detect the paired CYD Bluetooth port
+cyd <- channel_cyd_bluetooth()
 
-# Run job with live telemetry
+# Option 2: Connect explicitly to your outgoing COM port (e.g. COM10)
+# cyd <- channel_cyd_bluetooth(port = "COM10")
+
+# Run job with live desk telemetry
 job <- notify_job(
   title = "Creel Model Bootstrap",
   channels = list(cyd, channel_desktop()),
   total_steps = 50
 )
 
-job$start("Starting bootstrap iterations...")
+job$start("Starting bootstrap iterations over Bluetooth...")
 
 for (i in 1:50) {
   Sys.sleep(0.1)
@@ -175,11 +180,15 @@ job$complete("All iterations converged successfully.")
 
 ### Method B: Wired via USB Serial
 If your CYD is plugged directly into a USB port on your workstation:
+
 ```r
 library(rNotify)
 
-# Directly access the USB serial port
-cyd <- channel_cyd_serial(port = "COM7")
+# Auto-detects USB CH340 / CP210x serial adapter
+cyd <- channel_cyd_serial()
+
+# Or specify explicitly:
+# cyd <- channel_cyd_serial(port = "COM7")
 
 job <- notify_job(
   title = "Local Analysis",
