@@ -64,3 +64,34 @@ test_that("with_notify catches and notifies errors while rethrowing", {
   err_payload <- dispatched[[which(events == "error")[1]]]
   expect_true(grepl("Simulated fatal", err_payload$details$error_message))
 })
+
+test_that("job$step auto-increments and job$finish alias works", {
+  dispatched <- list()
+  mock_channel <- new_channel(
+    name = "mock",
+    handler = function(p) {
+      dispatched <<- c(dispatched, list(p))
+    }
+  )
+
+  job <- notify_job(
+    title = "Step Test",
+    channels = list(mock_channel),
+    total_steps = 3,
+    throttle_sec = 0,
+    use_sentinel = FALSE,
+    announce = FALSE
+  )
+
+  job$start()
+  job$step("First batch")
+  expect_equal(job$current_step, 1)
+  expect_equal(dispatched[[length(dispatched)]]$progress$step, 1)
+
+  job$step("Second batch")
+  expect_equal(job$current_step, 2)
+  expect_equal(dispatched[[length(dispatched)]]$progress$step, 2)
+
+  job$finish("All completed successfully")
+  expect_equal(dispatched[[length(dispatched)]]$event, "complete")
+})

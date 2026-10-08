@@ -170,13 +170,10 @@ NotifyJob <- R6::R6Class("NotifyJob",
     #' Report an Unmetered Milestone Step
     #'
     #' @param message Milestone description.
-    #' @param step Optional current step index.
+    #' @param step Optional current step index (auto-increments by 1 if omitted).
     step = function(message = "", step = NULL) {
-      if (!is.null(step)) {
-        self$progress(step = step, message = message, force = TRUE)
-      } else {
-        self$progress(message = message, force = TRUE)
-      }
+      target_step <- if (!is.null(step)) step else (self$current_step + 1)
+      self$progress(step = target_step, message = message, force = TRUE)
       invisible(self)
     },
 
@@ -214,6 +211,7 @@ NotifyJob <- R6::R6Class("NotifyJob",
           force = TRUE
         )
       }
+      sub$finish <- sub$complete
 
       sub
     },
@@ -252,6 +250,14 @@ NotifyJob <- R6::R6Class("NotifyJob",
 
       self$dispatch(payload, force = TRUE)
       invisible(self)
+    },
+
+    #' Finish the Job (Alias for Complete)
+    #'
+    #' @param message Completion summary message.
+    #' @param custom_stats Optional list of metrics to include.
+    finish = function(message = "Job completed successfully.", custom_stats = list()) {
+      self$complete(message = message, custom_stats = custom_stats)
     },
 
     #' Handle Job Failure
