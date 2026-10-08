@@ -190,8 +190,10 @@ NotifyJob <- R6::R6Class("NotifyJob",
       sub <- new.env(parent = emptyenv())
       sub$title <- title
       sub$total_steps <- total_steps
+      sub$current_step <- 0
 
       sub$progress = function(step, message = "") {
+        sub$current_step <- step
         parent_job$progress(
           step = parent_job$current_step,
           total = parent_job$total_steps,
@@ -199,6 +201,11 @@ NotifyJob <- R6::R6Class("NotifyJob",
           inner_total = sub$total_steps,
           inner_message = sprintf("[%s] %s", sub$title, message)
         )
+      }
+
+      sub$step = function(message = "", step = NULL) {
+        s <- if (!is.null(step)) step else (sub$current_step + 1)
+        sub$progress(step = s, message = message)
       }
 
       sub$complete = function(message = sprintf("Subtask '%s' completed.", sub$title)) {
