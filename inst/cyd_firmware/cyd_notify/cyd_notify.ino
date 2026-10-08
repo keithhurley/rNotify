@@ -82,17 +82,21 @@ void drawProgressBar(int x, int y, int w, int h, int pct, uint16_t color) {
 }
 
 void showIdleScreen() {
+  int W = tft.width();
+  int H = tft.height();
+  int card_w = W - 16;
+
   tft.fillScreen(COLOR_BG);
 
   // 1. Top Header Banner
-  tft.fillRect(0, 0, 320, 28, COLOR_CYAN);
+  tft.fillRect(0, 0, W, 28, COLOR_CYAN);
   tft.setTextColor(COLOR_BG, COLOR_CYAN);
   tft.setTextSize(2);
   tft.drawString("BLUETOOTH READY", 8, 6);
 
   tft.setTextSize(1);
   tft.setTextColor(COLOR_WHITE, COLOR_CYAN);
-  tft.drawString("rNotify v0.1", 235, 10);
+  tft.drawString("rNotify v0.1", W - 80, 10);
 
   // 2. Desk Monitor Title
   tft.setTextSize(2);
@@ -100,8 +104,8 @@ void showIdleScreen() {
   tft.drawString("rNotify Desk Monitor", 8, 38);
 
   // 3. Status Box
-  tft.fillRect(8, 70, 304, 75, COLOR_CARD_BG);
-  tft.drawRect(8, 70, 304, 75, COLOR_WHITE);
+  tft.fillRect(8, 70, card_w, 75, COLOR_CARD_BG);
+  tft.drawRect(8, 70, card_w, 75, COLOR_WHITE);
 
   tft.setTextColor(COLOR_CYAN, COLOR_CARD_BG);
   tft.setTextSize(1);
@@ -120,16 +124,20 @@ void showIdleScreen() {
   tft.setTextSize(1);
   tft.drawString("Inside R (Bluetooth or USB Serial):", 8, 158);
   tft.setTextColor(COLOR_YELLOW, COLOR_BG);
-  tft.drawString("cyd <- channel_cyd(port = 'COM8')", 8, 174);
-  tft.drawString("# or: cyd <- channel_cyd_bluetooth('COM8')", 8, 190);
+  tft.drawString("cyd <- channel_cyd()", 8, 174);
+  tft.drawString("# or: cyd <- channel_cyd_bluetooth()", 8, 190);
 
   tft.setTextColor(0x7BEF, COLOR_BG);
-  tft.drawString("Awaiting incoming R job telemetry...", 8, 212);
+  tft.drawString("Awaiting incoming R job telemetry...", 8, H - 18);
 
   setRgbLed(0, 100, 255); // Blue/Cyan
 }
 
 void renderPayload(const JsonDocument& doc) {
+  int W = tft.width();
+  int H = tft.height();
+  int card_w = W - 16;
+
   const char* title       = doc["title"] | "R Job";
   const char* status_text = doc["status_text"] | "RUNNING";
   const char* color_hex   = doc["status_color"] | "#00CCFF";
@@ -156,14 +164,14 @@ void renderPayload(const JsonDocument& doc) {
   tft.fillScreen(COLOR_BG);
 
   // 1. Top Header Banner
-  tft.fillRect(0, 0, 320, 28, status_color);
+  tft.fillRect(0, 0, W, 28, status_color);
   tft.setTextColor(COLOR_BG, status_color);
   tft.setTextSize(2);
   tft.drawString(status_text, 8, 6);
 
   tft.setTextSize(1);
   tft.setTextColor(COLOR_WHITE, status_color);
-  tft.drawString("rNotify v0.1", 240, 10);
+  tft.drawString("rNotify v0.1", W - 80, 10);
 
   // 2. Job Title
   tft.setTextSize(2);
@@ -180,33 +188,34 @@ void renderPayload(const JsonDocument& doc) {
   char outer_str[64];
   snprintf(outer_str, sizeof(outer_str), "Outer: %s  (%d%%)", step_info, progress_pct);
   tft.drawString(outer_str, 8, 80);
-  drawProgressBar(8, 95, 304, 16, progress_pct, status_color);
+  drawProgressBar(8, 95, card_w, 18, progress_pct, status_color);
 
   // 5. Nested Inner Loop Progress Bar (if active)
   if (strlen(inner_info) > 0 || inner_pct > 0) {
     char inner_str[64];
     snprintf(inner_str, sizeof(inner_str), "Inner Subtask: %s  (%d%%)", inner_info, inner_pct);
     tft.drawString(inner_str, 8, 120);
-    drawProgressBar(8, 135, 304, 12, inner_pct, COLOR_CYAN);
+    drawProgressBar(8, 135, card_w, 14, inner_pct, COLOR_CYAN);
   }
 
   // 6. Timing Information Box
-  tft.fillRect(8, 165, 304, 45, COLOR_CARD_BG);
-  tft.drawRect(8, 165, 304, 45, COLOR_WHITE);
+  int timing_y = (H > 240) ? (H - 95) : 165;
+  tft.fillRect(8, timing_y, card_w, 45, COLOR_CARD_BG);
+  tft.drawRect(8, timing_y, card_w, 45, COLOR_WHITE);
   tft.setTextColor(COLOR_WHITE, COLOR_CARD_BG);
   tft.setTextSize(1);
 
   char elapsed_buf[48];
   snprintf(elapsed_buf, sizeof(elapsed_buf), "Elapsed: %s", elapsed);
-  tft.drawString(elapsed_buf, 16, 175);
+  tft.drawString(elapsed_buf, 16, timing_y + 16);
 
   char eta_buf[48];
   snprintf(eta_buf, sizeof(eta_buf), "ETA: %s", eta);
-  tft.drawString(eta_buf, 170, 175);
+  tft.drawString(eta_buf, 8 + (card_w / 2), timing_y + 16);
 
   // 7. Footer Status
   tft.setTextColor(0x7BEF, COLOR_BG);
-  tft.drawString("Bluetooth: rNotify-CYD", 8, 222);
+  tft.drawString("Bluetooth: rNotify-CYD", 8, H - 16);
 }
 
 void processLine(const String& line) {
