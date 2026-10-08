@@ -160,30 +160,62 @@ void renderPayload(const JsonDocument& doc) {
     setRgbLed(0, 150, 255); // Cyan
   }
 
-  // Clear display canvas
-  tft.fillScreen(COLOR_BG);
+  static bool is_screen_active = false;
+  static String last_title = "";
+  static String last_status = "";
 
-  // 1. Top Header Banner
-  tft.fillRect(0, 0, W, 28, status_color);
-  tft.setTextColor(COLOR_BG, status_color);
-  tft.setTextSize(2);
-  tft.drawString(status_text, 8, 6);
+  int timing_y = (H > 240) ? (H - 95) : 165;
+  bool is_term_state = (strcmp(status_text, "COMPLETE") == 0 || strcmp(status_text, "FAILED") == 0 || strcmp(status_text, "CRASHED") == 0);
+  bool is_new_job = !is_screen_active || (last_title != title) || (strcmp(status_text, "STARTED") == 0) || is_term_state;
 
-  tft.setTextSize(1);
-  tft.setTextColor(COLOR_WHITE, status_color);
-  tft.drawString("rNotify v0.1", W - 80, 10);
+  if (is_new_job) {
+    tft.fillScreen(COLOR_BG);
+    is_screen_active = !is_term_state;
+    last_title = title;
+    last_status = status_text;
 
-  // 2. Job Title
-  tft.setTextSize(2);
-  tft.setTextColor(COLOR_WHITE, COLOR_BG);
-  tft.drawString(title, 8, 35);
+    // 1. Top Header Banner
+    tft.fillRect(0, 0, W, 28, status_color);
+    tft.setTextColor(COLOR_BG, status_color);
+    tft.setTextSize(2);
+    tft.drawString(status_text, 8, 6);
 
-  // 3. Message / Status Line
+    tft.setTextSize(1);
+    tft.setTextColor(COLOR_WHITE, status_color);
+    tft.drawString("rNotify v0.1", W - 80, 10);
+
+    // 2. Job Title
+    tft.setTextSize(2);
+    tft.setTextColor(COLOR_WHITE, COLOR_BG);
+    tft.drawString(title, 8, 35);
+
+    // 6. Timing Box container
+    tft.fillRect(8, timing_y, card_w, 45, COLOR_CARD_BG);
+    tft.drawRect(8, timing_y, card_w, 45, COLOR_WHITE);
+
+    // 7. Footer Status
+    tft.setTextColor(0x7BEF, COLOR_BG);
+    tft.drawString("Bluetooth: rNotify-CYD", 8, H - 16);
+  } else if (last_status != status_text) {
+    last_status = status_text;
+    tft.fillRect(0, 0, W, 28, status_color);
+    tft.setTextColor(COLOR_BG, status_color);
+    tft.setTextSize(2);
+    tft.drawString(status_text, 8, 6);
+
+    tft.setTextSize(1);
+    tft.setTextColor(COLOR_WHITE, status_color);
+    tft.drawString("rNotify v0.1", W - 80, 10);
+  }
+
+  // 3. Message / Status Line (flicker-free partial clear)
+  tft.fillRect(8, 58, card_w, 18, COLOR_BG);
   tft.setTextSize(1);
   tft.setTextColor(COLOR_YELLOW, COLOR_BG);
   tft.drawString(message, 8, 60);
 
-  // 4. Outer Progress Bar
+  // 4. Outer Progress Bar Header and Bar
+  tft.fillRect(8, 78, card_w, 16, COLOR_BG);
   tft.setTextColor(COLOR_WHITE, COLOR_BG);
   char outer_str[64];
   snprintf(outer_str, sizeof(outer_str), "Outer: %s  (%d%%)", step_info, progress_pct);
@@ -192,16 +224,16 @@ void renderPayload(const JsonDocument& doc) {
 
   // 5. Nested Inner Loop Progress Bar (if active)
   if (strlen(inner_info) > 0 || inner_pct > 0) {
+    tft.fillRect(8, 118, card_w, 16, COLOR_BG);
+    tft.setTextColor(COLOR_WHITE, COLOR_BG);
     char inner_str[64];
     snprintf(inner_str, sizeof(inner_str), "Inner Subtask: %s  (%d%%)", inner_info, inner_pct);
     tft.drawString(inner_str, 8, 120);
     drawProgressBar(8, 135, card_w, 14, inner_pct, COLOR_CYAN);
   }
 
-  // 6. Timing Information Box
-  int timing_y = (H > 240) ? (H - 95) : 165;
-  tft.fillRect(8, timing_y, card_w, 45, COLOR_CARD_BG);
-  tft.drawRect(8, timing_y, card_w, 45, COLOR_WHITE);
+  // 6. Timing Information Box contents
+  tft.fillRect(10, timing_y + 6, card_w - 4, 33, COLOR_CARD_BG);
   tft.setTextColor(COLOR_WHITE, COLOR_CARD_BG);
   tft.setTextSize(1);
 
@@ -212,10 +244,6 @@ void renderPayload(const JsonDocument& doc) {
   char eta_buf[48];
   snprintf(eta_buf, sizeof(eta_buf), "ETA: %s", eta);
   tft.drawString(eta_buf, 8 + (card_w / 2), timing_y + 16);
-
-  // 7. Footer Status
-  tft.setTextColor(0x7BEF, COLOR_BG);
-  tft.drawString("Bluetooth: rNotify-CYD", 8, H - 16);
 }
 
 void processLine(const String& line) {
@@ -284,7 +312,6 @@ void loop() {
     if (line.length() > 0) {
       Serial.println("[rNotify: BT Rx] " + line);
       processLine(line);
-      SerialBT.println("{\"status\":\"ok\"}");
     }
   }
 
