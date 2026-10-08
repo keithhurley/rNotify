@@ -48,18 +48,34 @@ channel_desktop <- function(sound = TRUE,
         }
         msg_esc <- gsub("\"", "`\"", raw_msg)
 
+        title_esc <- gsub("\"", "`\"", payload$title)
+
         if (.Platform$OS.type == "windows") {
-          # PowerShell notification script
+          # PowerShell notification script (modern WinRT Toast with BalloonTip fallback)
           ps_code <- sprintf(
-            '$title = "%s"; $msg = "%s"; ' %+%
-            'Add-Type -AssemblyName System.Windows.Forms; ' %+%
-            '$notify = New-Object System.Windows.Forms.NotifyIcon; ' %+%
-            '$notify.Icon = [System.Drawing.SystemIcons]::Information; ' %+%
-            '$notify.Visible = $True; ' %+%
-            '$notify.ShowBalloonTip(4000, $title, $msg, [System.Windows.Forms.ToolTipIcon]::Info);',
-            title_esc, msg_esc
+            paste(
+              'try {',
+              '  [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null;',
+              '  [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null;',
+              '  $doc = [Windows.Data.Xml.Dom.XmlDocument]::new();',
+              '  $xml = "<toast><visual><binding template=\\"ToastGeneric\\"><text>%s</text><text>%s</text></binding></visual></toast>";',
+              '  $doc.LoadXml($xml);',
+              '  $t = [Windows.UI.Notifications.ToastNotification]::new($doc);',
+              '  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe").Show($t);',
+              '} catch {',
+              '  Add-Type -AssemblyName System.Windows.Forms;',
+              '  $notify = New-Object System.Windows.Forms.NotifyIcon;',
+              '  $notify.Icon = [System.Drawing.SystemIcons]::Information;',
+              '  $notify.Visible = $True;',
+              '  $notify.ShowBalloonTip(4000, "%s", "%s", [System.Windows.Forms.ToolTipIcon]::Info);',
+              '}',
+              sep = " "
+            ),
+            title_esc, msg_esc, title_esc, msg_esc
           )
-          system2("powershell", c("-NoProfile", "-Command", ps_code), wait = FALSE, stdout = FALSE, stderr = FALSE)
+          raw_val <- iconv(ps_code, to = "UTF-16LE", toRaw = TRUE)[[1]]
+          b64 <- jsonlite::base64_enc(raw_val)
+          system2("powershell", c("-NoProfile", "-NonInteractive", "-EncodedCommand", b64), wait = FALSE, stdout = FALSE, stderr = FALSE)
         } else {
           # macOS terminal-notifier / Linux notify-send
           if (nzchar(Sys.which("notify-send"))) {
