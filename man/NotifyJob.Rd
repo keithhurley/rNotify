@@ -41,6 +41,8 @@ Initialize a new NotifyJob}
 \item \href{#method-NotifyJob-step}{\code{NotifyJob$step()}}
 \item \href{#method-NotifyJob-subtask}{\code{NotifyJob$subtask()}}
 \item \href{#method-NotifyJob-complete}{\code{NotifyJob$complete()}}
+\item \href{#method-NotifyJob-finish}{\code{NotifyJob$finish()}}
+\item \href{#method-NotifyJob-reset}{\code{NotifyJob$reset()}}
 \item \href{#method-NotifyJob-error}{\code{NotifyJob$error()}}
 \item \href{#method-NotifyJob-dispatch}{\code{NotifyJob$dispatch()}}
 \item \href{#method-NotifyJob-clone}{\code{NotifyJob$clone()}}
@@ -156,7 +158,7 @@ Report an Unmetered Milestone Step}
 \describe{
 \item{\code{message}}{Milestone description.}
 
-\item{\code{step}}{Optional current step index.
+\item{\code{step}}{Optional current step index (auto-increments by 1 if omitted).
 Create a Nested Subtask for Inner Loops}
 }
 \if{html}{\out{</div>}}
@@ -203,10 +205,45 @@ Complete the Job Successfully
 \item{\code{message}}{Completion summary message.}
 
 \item{\code{custom_stats}}{Optional list of metrics to include.
-Handle Job Failure}
+Finish the Job (Alias for Complete)}
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NotifyJob-finish"></a>}}
+\if{latex}{\out{\hypertarget{method-NotifyJob-finish}{}}}
+\subsection{Method \code{finish()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NotifyJob$finish(
+  message = "Job completed successfully.",
+  custom_stats = list()
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{message}}{Completion summary message.}
+
+\item{\code{custom_stats}}{Optional list of metrics to include.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NotifyJob-reset"></a>}}
+\if{latex}{\out{\hypertarget{method-NotifyJob-reset}{}}}
+\subsection{Method \code{reset()}}{
+Reset Attached Hardware Displays (e.g. CYD)
+
+Sends a reset signal to attached hardware displays (such as the Cheap Yellow Display)
+to return to their clean idle/boot standby screen and shut off LEDs.
+Handle Job Failure
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NotifyJob$reset()}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-NotifyJob-error"></a>}}

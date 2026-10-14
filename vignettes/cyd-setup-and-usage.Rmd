@@ -109,7 +109,8 @@ In your computer's Arduino libraries folder, locate `libraries/TFT_eSPI/User_Set
 1. Open [`inst/cyd_firmware/cyd_notify.ino`](file:///c:/Users/keith.hurley/source/repos/rNotify/inst/cyd_firmware/cyd_notify.ino).
 2. Connect your CYD via micro-USB.
 3. Select your serial port (e.g. `COM7`) and upload.
-4. Once flashed, the screen initializes and displays **BLUETOOTH READY** with device name `rNotify-CYD`.
+4. Once flashed, the screen initializes with the **Cyberpunk Telemetry Deck** (displaying device name `rNotify-CYD`, wireless status, and an interactive R quickstart console).
+5. **Interactive Demo Preview**: You can press the physical **BOOT** button (GPIO 0) on the back of the CYD at any time to cycle through demonstration previews of Running, Complete, and Error screens.
 
 ---
 
@@ -258,10 +259,40 @@ job$complete("Finished statewide analysis.")
 
 ### RGB LED Feedback
 The CYD onboard RGB LED mirrors your job lifecycle:
-- **Idle / Ready**: Soft Cyan / Blue
-- **Running (`start`, `progress`, `step`)**: Vibrant Blue / Cyan
-- **Complete (`complete`)**: Bright Green
-- **Failure / Crash (`error`, `catastrophic`)**: High-visibility Red
+- **Idle / Ready**: Off (LED shut off / dark)
+- **Job Initialized (`start`)**: Amber / Yellow (`255, 150, 0`)
+- **Running (`progress`, `step`)**: Vibrant Electric Cyan (`0, 160, 255`)
+- **Complete (`complete`)**: Bright Green (`0, 255, 0`)
+- **Failure / Crash (`error`, `catastrophic`)**: High-visibility Red (`255, 0, 0`)
+
+### Artistic Boot & Idle Screen
+When the CYD boots or when a reset command is issued, the display transitions to an artistic Cyberpunk standby dashboard featuring:
+- **"R-Notify" Centerpiece**: A bold, multi-layered 3D glowing neon logo in Electric Violet and Cyan.
+- **Bluetooth Link Dashboard**: Displays current pairing state (`READY TO PAIR` in amber or `CONNECTED` in emerald green), Bluetooth device identifier (`rNotify-CYD`), baud rate, and active host COM port (e.g., `COM8` or `Auto`).
+- **USB Cable Serial Dashboard**: Displays physical cable interface status (`CONNECTED` in cyan), USB-UART driver details (`CH340 / CP210x`), and host serial port (e.g., `COM12`).
+- **Dynamic Connection Detection**: Automatically switches from pairing standby to connected status within 1 second of establishing a Bluetooth link.
+
+### Resetting the Display (Standby Mode)
+Once a job completes or when you want to return the display to its clean standby screen:
+```r
+# Reset via the active job:
+job$reset()
+
+# Or reset directly through the channel object:
+cyd$reset()
+
+# Or via the standalone function:
+cyd_reset(cyd)
+```
+This sends a reset command that immediately clears any active telemetry canvas, restores the artistic "R-Notify" boot/standby console, and powers down the RGB LED.
+
+### Touchscreen Corner System Reset (`[RST]`)
+When the CYD module is mounted inside a 3D-printed enclosure or desk case, the physical hardware reset button on the back of the ESP32 board is often inaccessible.
+
+To solve this, the firmware includes an integrated **touchscreen reset button (`[RST]`)** in the top-right corner of **every screen** (both the idle screen and live job telemetry screens):
+- **Location**: Top-right corner of the cyber navbar (`[RST]`).
+- **Action**: Tapping the button highlights the badge in neon red, flashes the RGB LED, displays a `SYSTEM REBOOT` banner, and triggers a clean hardware reboot (`ESP.restart()`).
+- **Touch Controller**: Powered by the onboard XPT2046 resistive touch controller communicating over VSPI.
 
 ### Serial & JSON Protocol
 `channel_cyd` sends newline-terminated JSON strings over Bluetooth and USB Serial at 115200 baud:
@@ -271,15 +302,17 @@ The CYD onboard RGB LED mirrors your job lifecycle:
   "title": "Statewide Creel Index",
   "event": "progress",
   "status_text": "RUNNING",
-  "status_color": "#33DD66",
+  "status_color": "#00F0FF",
   "progress_pct": 24,
   "step_info": "12 / 50",
   "inner_pct": 45,
   "inner_info": "450 / 1000",
-  "message": "Fitting Lake McConaughy",
+  "message": "[Lake 1] Fitting Lake McConaughy",
   "elapsed": "01:14:22",
   "eta": "04:02:10",
   "channels": ["cyd", "desktop"]
 }
 ```
+In addition to telemetry events, plain text `"reset"` or JSON `{"action":"reset"}` commands return the CYD to its standby state.
 Upon receiving each valid payload, the CYD immediately updates its canvas and returns `{"status":"ok"}`.
+

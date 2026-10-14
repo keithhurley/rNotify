@@ -4,7 +4,7 @@
 \alias{safe_dispatch}
 \title{Safely Dispatch Payload to a Channel with Full Fault Isolation}
 \usage{
-safe_dispatch(channel, payload, is_inner = FALSE)
+safe_dispatch(channel, payload, is_inner = FALSE, force = FALSE)
 }
 \arguments{
 \item{channel}{An \code{rnotify_channel} object.}
@@ -12,6 +12,8 @@ safe_dispatch(channel, payload, is_inner = FALSE)
 \item{payload}{An \code{rnotify_payload} object.}
 
 \item{is_inner}{Logical indicating if this event originated from an inner loop subtask.}
+
+\item{force}{Logical indicating whether this dispatch bypasses channel throttles.}
 }
 \value{
 Logical TRUE if dispatched successfully, FALSE if skipped or caught error.

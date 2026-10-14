@@ -10,6 +10,9 @@ new_channel(
   min_level = c("outer", "inner"),
   events = c("start", "progress", "step", "complete", "error", "catastrophic"),
   throttle_sec = NULL,
+  pct_step = NULL,
+  milestones = NULL,
+  min_step_change = NULL,
   ...
 )
 }

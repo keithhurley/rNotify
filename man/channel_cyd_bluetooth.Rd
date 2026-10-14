@@ -9,7 +9,8 @@ channel_cyd_bluetooth(
   baud = 115200,
   min_level = "inner",
   events = c("start", "progress", "step", "complete", "error", "catastrophic"),
-  throttle_sec = 2,
+  throttle_sec = 0.25,
+  pct_step = 5,
   timeout_sec = 2
 )
 }
@@ -25,7 +26,7 @@ or "outer" (milestones only).}
 
 \item{events}{Vector of event types to dispatch.}
 
-\item{throttle_sec}{Minimum interval in seconds between CYD screen updates (default: 2.0).}
+\item{throttle_sec}{Minimum interval in seconds between CYD screen updates (default: 0.25).}
 
 \item{timeout_sec}{Timeout in seconds (default: 2.0).}
 }

@@ -25,10 +25,18 @@ new_channel <- function(name,
                         min_level = c("outer", "inner"),
                         events = c("start", "progress", "step", "complete", "error", "catastrophic"),
                         throttle_sec = NULL,
+                        pct_step = NULL,
+                        milestones = NULL,
+                        min_step_change = NULL,
                         ...) {
   min_level <- match.arg(min_level)
 
-  throttler <- create_throttler(throttle_sec = throttle_sec)
+  throttler <- create_throttler(
+    throttle_sec = throttle_sec,
+    pct_step = pct_step,
+    milestones = milestones,
+    min_step_change = min_step_change
+  )
 
   channel <- list(
     name         = name,
@@ -36,6 +44,7 @@ new_channel <- function(name,
     min_level    = min_level,
     events       = events,
     throttle_sec = throttle_sec,
+    pct_step     = pct_step,
     throttler    = throttler,
     meta         = list(...)
   )
@@ -52,9 +61,10 @@ new_channel <- function(name,
 #' @param channel An \code{rnotify_channel} object.
 #' @param payload An \code{rnotify_payload} object.
 #' @param is_inner Logical indicating if this event originated from an inner loop subtask.
+#' @param force Logical indicating whether this dispatch bypasses channel throttles.
 #' @return Logical TRUE if dispatched successfully, FALSE if skipped or caught error.
 #' @export
-safe_dispatch <- function(channel, payload, is_inner = FALSE) {
+safe_dispatch <- function(channel, payload, is_inner = FALSE, force = FALSE) {
   if (!inherits(channel, "rnotify_channel")) {
     return(FALSE)
   }
@@ -64,13 +74,13 @@ safe_dispatch <- function(channel, payload, is_inner = FALSE) {
     return(FALSE)
   }
 
-  # 2. Event filter: check if channel listens to this event
-  if (!is.null(channel$events) && !(payload$event %in% channel$events)) {
+  # 2. Event filter: check if channel listens to this event (always permit 'reset' event)
+  if (!identical(payload$event, "reset") && !is.null(channel$events) && !(payload$event %in% channel$events)) {
     return(FALSE)
   }
 
-  # 3. Channel-level throttling check (bypass throttle on critical events)
-  force_dispatch <- payload$event %in% c("start", "complete", "error", "catastrophic")
+  # 3. Channel-level throttling check (bypass throttle on critical events or forced dispatches)
+  force_dispatch <- isTRUE(force) || (payload$event %in% c("start", "complete", "error", "catastrophic"))
   step_val <- if (!is.null(payload$progress$inner_step)) payload$progress$inner_step else payload$progress$step
   total_val <- if (!is.null(payload$progress$inner_total)) payload$progress$inner_total else payload$progress$total
 

@@ -21,18 +21,20 @@ test_that("NotifyJob lifecycle coordinates events and subtasks", {
   expect_equal(length(dispatched), 1)
   expect_equal(dispatched[[1]]$event, "start")
 
-  # Subtask nested loop
+  # Subtask nested loop: subtask() dispatches step 0 to reset inner bar
   sub <- job$subtask("Sub 1", total_steps = 10, step_num = 1)
+  expect_equal(dispatched[[2]]$progress$inner_step, 0)
+
   sub$progress(5, "Rep 5")
-  expect_equal(length(dispatched), 2)
-  expect_equal(dispatched[[2]]$progress$inner_step, 5)
+  expect_equal(length(dispatched), 3)
+  expect_equal(dispatched[[3]]$progress$inner_step, 5)
 
   sub$complete()
-  expect_equal(length(dispatched), 3)
+  expect_equal(length(dispatched), 4)
 
   job$complete("All done")
-  expect_equal(length(dispatched), 4)
-  expect_equal(dispatched[[4]]$event, "complete")
+  expect_equal(length(dispatched), 5)
+  expect_equal(dispatched[[5]]$event, "complete")
 })
 
 test_that("with_notify catches and notifies errors while rethrowing", {
@@ -94,4 +96,48 @@ test_that("job$step auto-increments and job$finish alias works", {
 
   job$finish("All completed successfully")
   expect_equal(dispatched[[length(dispatched)]]$event, "complete")
+})
+
+test_that("subtask inner loop progress dispatches to inner channels with default 60s outer throttle", {
+  inner_dispatches <- list()
+  mock_cyd <- new_channel(
+    name = "cyd",
+    handler = function(p) {
+      inner_dispatches <<- c(inner_dispatches, list(p))
+    },
+    min_level = "inner"
+  )
+
+  # Default job has throttle_sec = 60
+  job <- notify_job(
+    title = "Statewide Creel Index",
+    channels = list(mock_cyd),
+    total_steps = 10,
+    use_sentinel = FALSE,
+    announce = FALSE
+  )
+
+  job$start("Starting statewide run...")
+  sub <- job$subtask("Lake 1", total_steps = 100, step_num = 1)
+
+  # Inner loop iterations should dispatch to inner channel
+  sub$progress(step = 10, message = "Iteration 10")
+  sub$progress(step = 20, message = "Iteration 20")
+
+  expect_true(length(inner_dispatches) >= 3) # start + init(0) + inner steps
+  sub$complete()
+
+  # Main loop moves to next iteration and creates next subtask
+  sub2 <- job$subtask("Lake 2", total_steps = 100, step_num = 2)
+  last_item <- inner_dispatches[[length(inner_dispatches)]]
+  expect_equal(last_item$progress$inner_step, 0) # resets to 0 on new subtask!
+  expect_equal(last_item$progress$step, 2)
+  expect_equal(last_item$progress$inner_message, "[Lake 2] Starting...")
+
+  sub2$progress(step = 50, message = "Iteration 50")
+  last_item2 <- inner_dispatches[[length(inner_dispatches)]]
+  expect_equal(last_item2$progress$inner_step, 50)
+
+  sub2$complete()
+  job$complete()
 })

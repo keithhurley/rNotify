@@ -18,7 +18,7 @@
 #' @param min_level Granularity level: "inner" (default, enables desk screen live updates)
 #'   or "outer" (milestones only).
 #' @param events Vector of event types to dispatch.
-#' @param throttle_sec Minimum interval in seconds between CYD screen updates (default: 2.0).
+#' @param throttle_sec Minimum interval in seconds between CYD screen updates (default: 0.25).
 #' @param timeout_sec Request or connection timeout in seconds (default: 2.0).
 #' @return An \code{rnotify_channel} object.
 #' @export
@@ -29,8 +29,9 @@ channel_cyd <- function(target = NULL,
                         baud = 115200,
                         path = "/api/notify",
                         min_level = "inner",
-                        events = c("start", "progress", "step", "complete", "error", "catastrophic"),
-                        throttle_sec = 2.0,
+                        events = c("start", "progress", "step", "complete", "error", "catastrophic", "reset"),
+                        throttle_sec = 0.25,
+                        pct_step = 5,
                         timeout_sec = 2.0) {
   transport <- match.arg(transport)
 
@@ -108,7 +109,7 @@ channel_cyd <- function(target = NULL,
 
   write_serial_powershell <- function(port_name, baud_rate, json_payload) {
     ps_code <- sprintf(
-      "$ProgressPreference = 'SilentlyContinue'; $p = New-Object System.IO.Ports.SerialPort '%s', %d; $p.Open(); $p.WriteLine('%s'); Start-Sleep -Milliseconds 50; $p.Close()",
+      "$ProgressPreference = 'SilentlyContinue'; $p = New-Object System.IO.Ports.SerialPort '%s', %d; $p.DtrEnable = $false; $p.RtsEnable = $false; $p.Open(); $p.WriteLine('%s'); Start-Sleep -Milliseconds 80; $p.Close()",
       port_name, as.integer(baud_rate), gsub("'", "''", json_payload, fixed = TRUE)
     )
     raw_val <- iconv(ps_code, to = "UTF-16LE", toRaw = TRUE)[[1]]
@@ -144,6 +145,7 @@ channel_cyd <- function(target = NULL,
         })
         if (isTRUE(res_open)) {
           con_env$con <- c_obj
+          Sys.sleep(0.35)
         } else {
           serial_ok <- FALSE
         }
@@ -181,14 +183,32 @@ channel_cyd <- function(target = NULL,
       return(invisible(FALSE))
     }
 
-    # Color and label mapping
+    # Special reset command to return CYD to clean standby console and shut off LED
+    if (identical(payload$event, "reset") || identical(payload$message, "reset")) {
+      json_str <- "{\"action\":\"reset\",\"event\":\"reset\"}"
+      if (transport %in% c("bluetooth", "serial")) {
+        write_serial(target_clean, json_str)
+        Sys.sleep(0.25)
+        close_serial_con()
+      } else {
+        url <- sprintf("http://%s:%d%s", target_clean, http_port, path)
+        h <- curl::new_handle()
+        curl::handle_setopt(h, customrequest = "POST", postfields = json_str, timeout = timeout_sec, connecttimeout = timeout_sec)
+        curl::handle_setheaders(h, "Content-Type" = "application/json")
+        try(curl::curl_fetch_memory(url, handle = h), silent = TRUE)
+      }
+      return(invisible(TRUE))
+    }
+
+    # Color and label mapping (Cyan = Running, Green = Complete, Red = Failed/Crashed)
     status_map <- switch(payload$event,
       start        = list(text = "STARTED",  color = "#00CCFF"),
-      progress     = list(text = "RUNNING",  color = "#33DD66"),
-      step         = list(text = "RUNNING",  color = "#33DD66"),
+      progress     = list(text = "RUNNING",  color = "#00F0FF"),
+      step         = list(text = "RUNNING",  color = "#00F0FF"),
       complete     = list(text = "COMPLETE", color = "#00FF00"),
       error        = list(text = "FAILED",   color = "#FF3333"),
-      catastrophic = list(text = "CRASHED",  color = "#FF0000")
+      catastrophic = list(text = "CRASHED",  color = "#FF0000"),
+      reset        = list(text = "STANDBY",  color = "#00F0FF")
     )
 
     # Format step information
@@ -202,6 +222,14 @@ channel_cyd <- function(target = NULL,
       inner_info <- sprintf("%s / %s", payload$progress$inner_step, payload$progress$inner_total)
     }
 
+    display_msg <- if (nzchar(payload$message)) {
+      payload$message
+    } else if (!is.null(payload$progress$inner_message) && nzchar(payload$progress$inner_message)) {
+      payload$progress$inner_message
+    } else {
+      ""
+    }
+
     cyd_body <- list(
       title        = payload$title,
       event        = payload$event,
@@ -211,10 +239,12 @@ channel_cyd <- function(target = NULL,
       step_info    = step_info,
       inner_pct    = if (!is.na(payload$progress$inner_pct)) as.integer(round(payload$progress$inner_pct)) else 0L,
       inner_info   = inner_info,
-      message      = payload$message,
+      message      = display_msg,
       elapsed      = payload$progress$elapsed_fmt,
       eta          = payload$progress$eta_fmt,
-      channels     = payload$channels_active
+      channels     = payload$channels_active,
+      port         = target_clean,
+      transport    = transport
     )
 
     json_str <- jsonlite::toJSON(cyd_body, auto_unbox = TRUE)
@@ -254,6 +284,7 @@ channel_cyd <- function(target = NULL,
     min_level = min_level,
     events = events,
     throttle_sec = throttle_sec,
+    pct_step = pct_step,
     target = target_clean,
     transport = transport,
     baud = baud
@@ -261,6 +292,9 @@ channel_cyd <- function(target = NULL,
   ch$target <- target_clean
   ch$transport <- transport
   ch$baud <- baud
+  ch$reset <- function() {
+    cyd_reset(ch)
+  }
   ch
 }
 
@@ -276,7 +310,7 @@ channel_cyd <- function(target = NULL,
 #' @param min_level Granularity level: "inner" (default, enables desk screen live updates)
 #'   or "outer" (milestones only).
 #' @param events Vector of event types to dispatch.
-#' @param throttle_sec Minimum interval in seconds between CYD screen updates (default: 2.0).
+#' @param throttle_sec Minimum interval in seconds between CYD screen updates (default: 0.25).
 #' @param timeout_sec Timeout in seconds (default: 2.0).
 #' @return An \code{rnotify_channel} object.
 #' @export
@@ -292,8 +326,9 @@ channel_cyd <- function(target = NULL,
 channel_cyd_bluetooth <- function(port = "auto",
                                   baud = 115200,
                                   min_level = "inner",
-                                  events = c("start", "progress", "step", "complete", "error", "catastrophic"),
-                                  throttle_sec = 2.0,
+                                  events = c("start", "progress", "step", "complete", "error", "catastrophic", "reset"),
+                                  throttle_sec = 0.25,
+                                  pct_step = 5,
                                   timeout_sec = 2.0) {
   target_port <- port
   if (is.null(target_port) || identical(target_port, "auto")) {
@@ -317,6 +352,7 @@ channel_cyd_bluetooth <- function(port = "auto",
     min_level = min_level,
     events = events,
     throttle_sec = throttle_sec,
+    pct_step = pct_step,
     timeout_sec = timeout_sec
   )
 }
@@ -332,7 +368,8 @@ channel_cyd_bluetooth <- function(port = "auto",
 #' @param min_level Granularity level: "inner" (default, enables desk screen live updates)
 #'   or "outer" (milestones only).
 #' @param events Vector of event types to dispatch.
-#' @param throttle_sec Minimum interval in seconds between CYD screen updates (default: 2.0).
+#' @param throttle_sec Minimum interval in seconds between CYD screen updates (default: 0.25).
+#' @param pct_step Percentage interval trigger for guaranteed screen updates (default: 5).
 #' @param timeout_sec Timeout in seconds (default: 2.0).
 #' @return An \code{rnotify_channel} object.
 #' @export
@@ -348,8 +385,9 @@ channel_cyd_bluetooth <- function(port = "auto",
 channel_cyd_serial <- function(port = "auto",
                                baud = 115200,
                                min_level = "inner",
-                               events = c("start", "progress", "step", "complete", "error", "catastrophic"),
-                               throttle_sec = 2.0,
+                               events = c("start", "progress", "step", "complete", "error", "catastrophic", "reset"),
+                               throttle_sec = 0.25,
+                               pct_step = 5,
                                timeout_sec = 2.0) {
   target_port <- port
   if (is.null(target_port) || identical(target_port, "auto")) {
@@ -373,6 +411,7 @@ channel_cyd_serial <- function(port = "auto",
     min_level = min_level,
     events = events,
     throttle_sec = throttle_sec,
+    pct_step = pct_step,
     timeout_sec = timeout_sec
   )
 }
@@ -412,7 +451,13 @@ detect_cyd_port <- function(type = c("any", "bluetooth", "serial")) {
       "}",
       "# 2. USB Serial CH340 / CP210x / FTDI",
       "$usb = Get-PnpDevice -Class Ports -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'CH340|CP210|FTDI' }",
-      "if ($usb -and $usb.FriendlyName -match '\\((COM\\d+)\\)') { $res['serial'] = $Matches[1] }",
+      "if ($usb) {",
+      "  foreach ($u in $usb) {",
+      "    if ($u.FriendlyName -match '\\((COM\\d+)\\)') {",
+      "      $res['serial'] = $Matches[1]",
+      "    }",
+      "  }",
+      "}",
       "foreach ($k in $res.Keys) { Write-Output ($k + '=' + $res[$k]) }",
       sep = "\n"
     )
@@ -432,8 +477,8 @@ detect_cyd_port <- function(type = c("any", "bluetooth", "serial")) {
     if (type == "bluetooth" && !is.null(ports$bluetooth)) return(ports$bluetooth)
     if (type == "serial"    && !is.null(ports$serial))    return(ports$serial)
     if (type == "any") {
-      if (!is.null(ports$bluetooth)) return(ports$bluetooth)
       if (!is.null(ports$serial))    return(ports$serial)
+      if (!is.null(ports$bluetooth)) return(ports$bluetooth)
     }
   } else if (Sys.info()["sysname"] == "Darwin") {
     # macOS
@@ -459,3 +504,147 @@ detect_cyd_port <- function(type = c("any", "bluetooth", "serial")) {
 
   NULL
 }
+
+#' Run Demonstration Showcase on Cheap Yellow Display (CYD)
+#'
+#' Sends a rich test payload or trigger command to an attached or paired CYD
+#' module to preview the modern Cyberpunk HUD layout, neon progress bars,
+#' and dual metric timers without executing a full compute job.
+#'
+#' @param channel A CYD channel created via \code{\link{channel_cyd}},
+#'   \code{\link{channel_cyd_bluetooth}}, or \code{\link{channel_cyd_serial}}.
+#'   If \code{NULL}, attempts auto-detection.
+#' @param mode Demonstration mode to display: \code{"running"} (default),
+#'   \code{"complete"}, \code{"error"}, or \code{"cycle"}.
+#' @return Invisibly returns \code{TRUE} upon successful transmission.
+#' @export
+#' @examples
+#' \dontrun{
+#' # Send a live running job preview to CYD
+#' cyd_demo()
+#'
+#' # Preview the completion screen with emerald glow
+#' cyd_demo(mode = "complete")
+#'
+#' # Preview critical error alert
+#' cyd_demo(mode = "error")
+#' }
+cyd_demo <- function(channel = NULL,
+                     mode = c("running", "complete", "error", "cycle")) {
+  mode <- match.arg(mode)
+
+  if (is.null(channel)) {
+    channel <- channel_cyd(target = "auto")
+  }
+
+  if (!inherits(channel, "rnotify_channel")) {
+    stop("`channel` must be an rNotify channel object created via channel_cyd().", call. = FALSE)
+  }
+
+  if (mode == "cycle") {
+    # Send onboard demo trigger
+    if (channel$transport %in% c("bluetooth", "serial")) {
+      return(channel$handler(list(
+        title = "Demo Cycle",
+        event = "step",
+        message = "demo"
+      )))
+    }
+  }
+
+  payload <- switch(mode,
+    running = new_payload(
+      event = "progress",
+      title = "Bayesian MCMC Fit",
+      message = "Sampling posterior distribution...",
+      step = 2,
+      total = 4,
+      inner_step = 1360,
+      inner_total = 2000,
+      inner_message = "Chain 2 Sampling",
+      elapsed_sec = 522,
+      channels_active = c("cyd", "desktop")
+    ),
+    complete = new_payload(
+      event = "complete",
+      title = "Bootstrap Simulation",
+      message = "Converged! All 1000 replicates successful.",
+      step = 1000,
+      total = 1000,
+      elapsed_sec = 1459,
+      channels_active = c("cyd", "desktop")
+    ),
+    error = new_payload(
+      event = "error",
+      title = "High-Dim Optimization",
+      message = "Gradient explosion: Non-finite loss encountered",
+      step = 35,
+      total = 100,
+      elapsed_sec = 311,
+      channels_active = c("cyd")
+    )
+  )
+
+  channel$handler(payload)
+  invisible(TRUE)
+}
+
+#' Reset Cheap Yellow Display (CYD) to Clean Standby State
+#'
+#' Transmits a reset command to restore the CYD hardware display to its clean
+#' initial standby console state (the boot / idle screen) and shut off the onboard RGB LED.
+#'
+#' @param channel An \code{rnotify_channel} object created via \code{channel_cyd()}.
+#'   If NULL, automatically connects to the auto-detected CYD module.
+#' @return Invisible TRUE on successful dispatch.
+#' @export
+#' @examples
+#' \dontrun{
+#' # Reset after job completion
+#' cyd_reset()
+#'
+#' # Reset specific channel instance
+#' cyd <- channel_cyd_bluetooth()
+#' cyd_reset(cyd)
+#' }
+cyd_reset <- function(channel = NULL) {
+  if (is.character(channel)) {
+    channel <- channel_cyd(target = channel)
+  } else if (is.null(channel)) {
+    target_port <- detect_cyd_port("serial")
+    if (is.null(target_port) || !nzchar(target_port)) {
+      target_port <- detect_cyd_port("bluetooth")
+    }
+    if (is.null(target_port) || !nzchar(target_port)) {
+      target_port <- "auto"
+    }
+    channel <- channel_cyd(target = target_port)
+  }
+
+  if (!inherits(channel, "rnotify_channel")) {
+    stop("`channel` must be an rNotify channel object or COM port string.", call. = FALSE)
+  }
+
+  reset_payload <- list(
+    event   = "reset",
+    title   = "Reset",
+    message = "reset",
+    progress = list(
+      step = NULL,
+      total = NULL,
+      inner_step = NULL,
+      inner_total = NULL,
+      pct = NA_real_,
+      inner_pct = NA_real_,
+      elapsed_fmt = "--:--:--",
+      eta_fmt = "--:--:--"
+    ),
+    channels_active = "cyd"
+  )
+  class(reset_payload) <- c("rnotify_payload", "list")
+
+  # Invoke handler directly to ensure guaranteed transmission to the hardware
+  channel$handler(reset_payload)
+  invisible(TRUE)
+}
+

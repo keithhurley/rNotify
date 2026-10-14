@@ -129,15 +129,13 @@ NotifyJob <- R6::R6Class("NotifyJob",
 
       elapsed <- as.numeric(difftime(Sys.time(), self$start_time, units = "secs"))
 
-      # Check master job throttler
-      if (!isTRUE(force)) {
-        check_step <- if (!is.null(inner_step) && !is.null(inner_total) && !is.null(tot)) {
-          (max(0, self$current_step - 1)) + (inner_step / inner_total)
-        } else {
-          self$current_step
-        }
+      is_inner <- !is.null(inner_step)
 
-        if (!self$throttler$should_dispatch(step = check_step, total = tot, force = FALSE)) {
+      # Check master job throttler for outer loop progress
+      # Inner subtasks are handled at the channel level (channels with min_level="inner"
+      # like CYD enforce their own refresh throttles; outer-only channels skip them silently)
+      if (!isTRUE(force) && !is_inner) {
+        if (!self$throttler$should_dispatch(step = self$current_step, total = tot, force = FALSE)) {
           # Still touch sentinel heartbeat
           if (!is.null(self$sentinel)) self$sentinel$touch()
           return(invisible(self))
@@ -160,8 +158,10 @@ NotifyJob <- R6::R6Class("NotifyJob",
         channels_active = channel_names
       )
 
-      self$dispatch(payload, is_inner = !is.null(inner_step))
-      self$throttler$record_dispatch(step = self$current_step, total = tot)
+      self$dispatch(payload, is_inner = is_inner, force = force)
+      if (!is_inner) {
+        self$throttler$record_dispatch(step = self$current_step, total = tot)
+      }
 
       if (!is.null(self$sentinel)) self$sentinel$touch()
       invisible(self)
@@ -192,6 +192,17 @@ NotifyJob <- R6::R6Class("NotifyJob",
       sub$total_steps <- total_steps
       sub$current_step <- 0
 
+      # Immediately dispatch subtask initialization to reset inner progress bar to 0%
+      # on desk displays (like CYD) and update title / message
+      parent_job$progress(
+        step = parent_job$current_step,
+        total = parent_job$total_steps,
+        inner_step = 0,
+        inner_total = sub$total_steps,
+        inner_message = sprintf("[%s] Starting...", sub$title),
+        force = TRUE
+      )
+
       sub$progress = function(step, message = "") {
         sub$current_step <- step
         parent_job$progress(
@@ -204,7 +215,11 @@ NotifyJob <- R6::R6Class("NotifyJob",
       }
 
       sub$step = function(message = "", step = NULL) {
-        s <- if (!is.null(step)) step else (sub$current_step + 1)
+        if (is.numeric(message) && is.null(step)) {
+          step <- message
+          message <- ""
+        }
+        s <- if (!is.null(step)) as.integer(step) else (sub$current_step + 1)
         sub$progress(step = s, message = message)
       }
 
@@ -267,6 +282,24 @@ NotifyJob <- R6::R6Class("NotifyJob",
       self$complete(message = message, custom_stats = custom_stats)
     },
 
+    #' @description
+    #' Reset Attached Hardware Displays (e.g. CYD)
+    #'
+    #' Sends a reset signal to attached hardware displays (such as the Cheap Yellow Display)
+    #' to return to their clean idle/boot standby screen and shut off LEDs.
+    reset = function() {
+      for (ch in self$channels) {
+        if (inherits(ch, "rnotify_channel_cyd") || identical(ch$name, "cyd")) {
+          tryCatch({
+            cyd_reset(ch)
+          }, error = function(e) {
+            warning(sprintf("[rNotify] Reset failed on channel '%s': %s", ch$name, e$message), call. = FALSE)
+          })
+        }
+      }
+      invisible(self)
+    },
+
     #' Handle Job Failure
     #'
     #' @param e Error object or error message string.
@@ -312,7 +345,7 @@ NotifyJob <- R6::R6Class("NotifyJob",
     #' @param force Logical to bypass throttles.
     dispatch = function(payload, is_inner = FALSE, force = FALSE) {
       for (ch in self$channels) {
-        safe_dispatch(ch, payload, is_inner = is_inner)
+        safe_dispatch(ch, payload, is_inner = is_inner, force = force)
       }
     }
   )

@@ -68,3 +68,28 @@ test_that("channel_cyd supports bluetooth, serial, and http transports", {
   expect_true(is.character(detect_cyd_port("serial")) || is.null(detect_cyd_port("serial")))
 })
 
+test_that("cyd_demo formats and transmits showcase modes correctly", {
+  dispatched <- list()
+  mock_cyd <- new_channel("cyd", function(p) {
+    dispatched <<- c(dispatched, list(p))
+  })
+  mock_cyd$transport <- "bluetooth"
+
+  expect_invisible(cyd_demo(channel = mock_cyd, mode = "running"))
+  expect_equal(length(dispatched), 1)
+  expect_equal(dispatched[[1]]$title, "Bayesian MCMC Fit")
+  expect_equal(dispatched[[1]]$event, "progress")
+
+  expect_invisible(cyd_demo(channel = mock_cyd, mode = "complete"))
+  expect_equal(length(dispatched), 2)
+  expect_equal(dispatched[[2]]$title, "Bootstrap Simulation")
+  expect_equal(dispatched[[2]]$event, "complete")
+
+  expect_invisible(cyd_demo(channel = mock_cyd, mode = "error"))
+  expect_equal(length(dispatched), 3)
+  expect_equal(dispatched[[3]]$title, "High-Dim Optimization")
+  expect_equal(dispatched[[3]]$event, "error")
+
+  expect_error(cyd_demo(channel = "not_a_channel"), "must be an rNotify channel object")
+})
+
